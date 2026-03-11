@@ -64,8 +64,8 @@ export default function Sidebar() {
               className={cn(
                 "flex items-center gap-2.5 px-3 py-2 rounded text-xs font-medium transition-colors",
                 isActive
-                  ? "text-white bg-blue-600/20 border border-blue-500/30"
-                  : "border border-transparent hover:bg-[var(--bg-hover)]"
+                  ? "bg-blue-600/20 border-l-2 border-l-blue-400 pl-[10px]"
+                  : "border-l-2 border-l-transparent hover:bg-[var(--bg-hover)]"
               )}
               style={isActive ? { color: "#93c5fd" } : { color: "var(--text-secondary)" }}
             >
