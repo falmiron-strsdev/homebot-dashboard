@@ -31,6 +31,8 @@ interface Message {
   duration_ms?: number;
   model?: string;
   usage?: { input: number; output: number; total: number; cacheRead?: number };
+  /** true while SSE chunks are still arriving */
+  streaming?: boolean;
 }
 
 interface SessionMeta {
@@ -189,62 +191,175 @@ export default function ChatPage() {
       setLoading(true);
       haptic("send");
 
+      // ── Try streaming first ────────────────────────────────────────────────
+      let streamingId: string | null = null;
+      let streamSucceeded = false;
+
       try {
-        const res = await fetch("/api/chat", {
+        const res = await fetch("/api/chat/stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ message: msg, session_id: sessionId }),
         });
 
-        const data = await res.json();
-
-        if (data.db_warning && !dbWarning) {
-          setDbWarning(data.db_warning);
+        if (!res.ok || !res.body) {
+          throw new Error(`Stream unavailable (${res.status})`);
         }
 
-        if (!res.ok) {
+        // Add streaming placeholder bubble
+        streamingId = uid();
+        const placeholderTs = new Date();
+        setMessages((prev) => [
+          ...prev,
+          { id: streamingId!, role: "assistant", content: "", ts: placeholderTs, streaming: true },
+        ]);
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let sseBuffer = "";
+        let firstTokenFired = false;
+
+        outer: while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          sseBuffer += decoder.decode(value, { stream: true });
+          const parts = sseBuffer.split("\n\n");
+          sseBuffer = parts.pop() ?? "";
+
+          for (const part of parts) {
+            const dataLine = part.split("\n").find((l) => l.startsWith("data: "));
+            if (!dataLine) continue;
+
+            let payload: {
+              type: string;
+              text?: string;
+              firstToken?: boolean;
+              session_id?: string;
+              duration_ms?: number;
+              model?: string;
+              usage?: { input: number; output: number; total: number; cacheRead?: number };
+              db_warning?: string;
+              error?: string;
+            };
+            try {
+              payload = JSON.parse(dataLine.slice(6));
+            } catch {
+              continue;
+            }
+
+            if (payload.type === "chunk" && payload.text) {
+              if (!firstTokenFired) {
+                haptic("firstToken");
+                firstTokenFired = true;
+              }
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === streamingId
+                    ? { ...m, content: m.content + payload.text! }
+                    : m
+                )
+              );
+            } else if (payload.type === "done") {
+              if (payload.db_warning && !dbWarning) setDbWarning(payload.db_warning);
+              haptic("reply");
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === streamingId
+                    ? {
+                        ...m,
+                        streaming: false,
+                        duration_ms: payload.duration_ms,
+                        model: payload.model,
+                        usage: payload.usage,
+                      }
+                    : m
+                )
+              );
+              streamSucceeded = true;
+              loadSessions();
+              break outer;
+            } else if (payload.type === "error") {
+              haptic("error");
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === streamingId
+                    ? {
+                        ...m,
+                        role: "error" as Role,
+                        content: payload.error ?? "Stream error",
+                        streaming: false,
+                      }
+                    : m
+                )
+              );
+              streamSucceeded = true; // error was handled — no fallback needed
+              break outer;
+            }
+          }
+        }
+      } catch {
+        // Stream endpoint unavailable — fall back to blocking /api/chat
+        if (streamingId) {
+          setMessages((prev) => prev.filter((m) => m.id !== streamingId));
+          streamingId = null;
+        }
+      }
+
+      // ── Fallback: blocking /api/chat ───────────────────────────────────────
+      if (!streamSucceeded) {
+        try {
+          const res = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: msg, session_id: sessionId }),
+          });
+          const data = await res.json();
+          if (data.db_warning && !dbWarning) setDbWarning(data.db_warning);
+
+          if (!res.ok) {
+            haptic("error");
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: uid(),
+                role: "error",
+                content: data.error ?? `Error ${res.status}`,
+                ts: new Date(),
+              },
+            ]);
+          } else {
+            haptic("reply");
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: uid(),
+                role: "assistant",
+                content: data.reply,
+                ts: new Date(),
+                duration_ms: data.duration_ms,
+                model: data.model,
+                usage: data.usage,
+              },
+            ]);
+            loadSessions();
+          }
+        } catch (err) {
           haptic("error");
           setMessages((prev) => [
             ...prev,
             {
               id: uid(),
               role: "error",
-              content: data.error ?? `Error ${res.status}`,
+              content: err instanceof Error ? err.message : "Network error",
               ts: new Date(),
             },
           ]);
-        } else {
-          haptic("reply");
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: uid(),
-              role: "assistant",
-              content: data.reply,
-              ts: new Date(),
-              duration_ms: data.duration_ms,
-              model: data.model,
-              usage: data.usage,
-            },
-          ]);
-          // Refresh history list after each successful reply
-          loadSessions();
         }
-      } catch (err) {
-        haptic("error");
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: uid(),
-            role: "error",
-            content: err instanceof Error ? err.message : "Network error",
-            ts: new Date(),
-          },
-        ]);
-      } finally {
-        setLoading(false);
-        inputRef.current?.focus();
       }
+
+      setLoading(false);
+      inputRef.current?.focus();
     },
     [loading, sessionId, haptic, dbWarning, loadSessions]
   );
@@ -645,9 +760,30 @@ export default function ChatPage() {
           )}
 
           {!loadingSession &&
-            messages.map((msg) => <MessageBubble key={msg.id} message={msg} />)}
+            messages.map((msg, i) => (
+              <MessageBubble
+                key={msg.id}
+                message={msg}
+                onRetry={
+                  msg.role === "error"
+                    ? () => {
+                        // Find the preceding user message to retry
+                        const prevUser = [...messages]
+                          .slice(0, i)
+                          .reverse()
+                          .find((m) => m.role === "user");
+                        if (prevUser) {
+                          setMessages((prev) => prev.filter((m) => m.id !== msg.id));
+                          send(prevUser.content);
+                        }
+                      }
+                    : undefined
+                }
+              />
+            ))}
 
-          {loading && <ThinkingBubble />}
+          {/* Show thinking spinner only while waiting for the first SSE chunk */}
+          {loading && !messages.some((m) => m.streaming) && <ThinkingBubble />}
           <div ref={bottomRef} />
         </div>
 
@@ -830,10 +966,17 @@ function ThinkingBubble() {
   );
 }
 
-function MessageBubble({ message }: { message: Message }) {
+function MessageBubble({
+  message,
+  onRetry,
+}: {
+  message: Message;
+  onRetry?: () => void;
+}) {
   const [copied, setCopied] = useState(false);
   const isUser = message.role === "user";
   const isError = message.role === "error";
+  const isStreaming = message.streaming === true;
 
   function copy() {
     navigator.clipboard.writeText(message.content).then(() => {
@@ -850,7 +993,7 @@ function MessageBubble({ message }: { message: Message }) {
 
   return (
     <div className={cn("flex items-start gap-2.5 msg-spring-in", isUser && "flex-row-reverse")}>
-      {isUser ? <UserAvatar /> : <AgentAvatar error={isError} />}
+      {isUser ? <UserAvatar /> : <AgentAvatar error={isError} streaming={isStreaming} />}
 
       <div className={cn("flex flex-col gap-1 max-w-[85%] min-w-0", isUser && "items-end")}>
         <div
@@ -866,7 +1009,15 @@ function MessageBubble({ message }: { message: Message }) {
           {isUser ? (
             <span className="whitespace-pre-wrap">{message.content}</span>
           ) : (
-            <FormattedResponse content={message.content} />
+            <>
+              <FormattedResponse content={message.content} />
+              {isStreaming && (
+                <span
+                  className="inline-block w-[2px] h-[14px] ml-0.5 rounded-sm bg-blue-400 animate-caret align-middle"
+                  aria-hidden="true"
+                />
+              )}
+            </>
           )}
         </div>
 
@@ -878,10 +1029,10 @@ function MessageBubble({ message }: { message: Message }) {
           style={{ color: "var(--text-muted)" }}
         >
           <span>{message.ts.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-          {message.duration_ms && (
+          {message.duration_ms && !isStreaming && (
             <span className="opacity-60">{(message.duration_ms / 1000).toFixed(1)}s</span>
           )}
-          {message.model && (
+          {message.model && !isStreaming && (
             <span
               className="font-mono px-1.5 py-0.5 rounded text-[9px]"
               style={{ background: "var(--bg-elevated)", color: "var(--text-muted)" }}
@@ -889,7 +1040,7 @@ function MessageBubble({ message }: { message: Message }) {
               {message.model}
             </span>
           )}
-          {message.usage && (
+          {message.usage && !isStreaming && (
             <span>
               {message.usage.input.toLocaleString()} in · {message.usage.output.toLocaleString()} out
               {message.usage.cacheRead
@@ -897,13 +1048,29 @@ function MessageBubble({ message }: { message: Message }) {
                 : ""}
             </span>
           )}
-          {!isUser && (
+          {isStreaming && (
+            <span className="opacity-60 italic">streaming…</span>
+          )}
+          {!isUser && !isStreaming && (
             <button onClick={copy} className="hover:opacity-100 transition-opacity" title="Copy">
               {copied ? (
                 <RiCheckLine className="w-3 h-3 text-emerald-400" />
               ) : (
                 <RiFileCopyLine className="w-3 h-3" style={{ color: "var(--text-muted)" }} />
               )}
+            </button>
+          )}
+          {isError && onRetry && (
+            <button
+              onClick={onRetry}
+              className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] transition-all"
+              style={{
+                background: "rgba(239,68,68,0.12)",
+                border: "1px solid rgba(239,68,68,0.25)",
+                color: "#fca5a5",
+              }}
+            >
+              Retry
             </button>
           )}
         </div>
@@ -975,10 +1142,13 @@ function FormattedResponse({ content }: { content: string }) {
   );
 }
 
-function AgentAvatar({ error }: { error?: boolean }) {
+function AgentAvatar({ error, streaming }: { error?: boolean; streaming?: boolean }) {
   return (
     <div
-      className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center"
+      className={cn(
+        "w-7 h-7 rounded-full shrink-0 flex items-center justify-center",
+        streaming && "animate-pulse"
+      )}
       style={{
         background: error
           ? "linear-gradient(rgba(239,68,68,0.15), rgba(239,68,68,0.08)) padding-box, linear-gradient(135deg, rgba(239,68,68,0.40), rgba(239,68,68,0.15)) border-box"

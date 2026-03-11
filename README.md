@@ -140,6 +140,52 @@ Alternatively use the **Delete** button in the history rail in the UI, or call `
 
 If the database cannot be opened (e.g. the `data/` directory is read-only), the UI shows a non-blocking amber warning banner. All chat functionality remains available — messages are simply not persisted.
 
+## Streaming Chat (SSE)
+
+The dashboard chat supports real-time streaming responses via Server-Sent Events. When configured, the chat UI calls `/api/chat/stream` instead of the blocking `/api/chat`, and partial text is rendered as it arrives.
+
+### How it works
+
+```
+Browser
+  └─ POST /api/chat/stream (message + session_id)
+       └─ Next.js route (server-side only)
+            └─ Gateway /v1/chat/completions  (stream: true)
+                 ↓ SSE chunks
+            ←── proxied to browser as text/event-stream
+```
+
+The dashboard server holds the Gateway credentials — they are **never** sent to the browser.
+
+### Environment variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `GATEWAY_URL` | `http://192.168.1.222:8000` | Base URL of the OpenAI-compatible Gateway (falls back to `ORCH_URL`) |
+| `GATEWAY_TOKEN` | _(empty)_ | Bearer token for Gateway auth (falls back to `ORCH_API_KEY`) |
+
+Set these in a `.env.local` file (never committed) or in your hosting environment:
+
+```bash
+# .env.local
+GATEWAY_URL=http://192.168.1.222:8000
+GATEWAY_TOKEN=your-secret-token
+```
+
+### Fallback behaviour
+
+If the streaming endpoint is unreachable or returns an error, the frontend automatically falls back to the blocking `POST /api/chat` route so the UI always works. The health-check `GET /api/chat` is unchanged.
+
+### SSE event format
+
+Each `data:` line sent to the browser is a JSON object with a `type` field:
+
+| Type | Payload | Description |
+|---|---|---|
+| `chunk` | `{ type, text, firstToken? }` | One token or text delta from the model |
+| `done` | `{ type, session_id, duration_ms, model?, usage?, db_warning? }` | Stream finished; includes final metadata |
+| `error` | `{ type, error }` | Gateway or parse error; stream closes |
+
 ## Getting Started
 
 First, run the development server:

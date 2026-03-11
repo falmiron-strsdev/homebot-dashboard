@@ -5,6 +5,7 @@ import { useCallback } from "react";
 // Distinct vibration patterns (milliseconds)
 const HAPTIC_PATTERNS = {
   send: [12],            // Short crisp tap – sent message
+  firstToken: [8],       // Subtle pulse – first streaming token arrived
   reply: [10, 50, 10],   // Double pulse – assistant replied
   error: [30, 60, 30],   // Heavy triple – error occurred
 } as const;
