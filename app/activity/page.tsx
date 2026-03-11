@@ -33,7 +33,7 @@ export default function ActivityPage() {
         isRefreshing={isRefreshing}
       />
 
-      <div className="flex-1 p-6 overflow-y-auto">
+      <div className="flex-1 p-4 md:p-6 overflow-y-auto pb-24 md:pb-6">
         {isLoading ? (
           <PageLoader />
         ) : error ? (

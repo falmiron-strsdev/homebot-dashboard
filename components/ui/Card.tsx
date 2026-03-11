@@ -10,7 +10,7 @@ export function Card({ children, className, noPad }: CardProps) {
   return (
     <div
       className={cn(
-        "rounded-lg border",
+        "rounded-xl border",
         !noPad && "p-4",
         className
       )}

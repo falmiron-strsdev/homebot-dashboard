@@ -98,7 +98,7 @@ function JobsContent() {
 
       {/* Filters bar */}
       <div
-        className="flex items-center gap-3 px-6 py-3 border-b flex-wrap"
+        className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 px-4 sm:px-6 py-3 border-b"
         style={{ borderColor: "var(--border)", background: "var(--bg-surface)" }}
       >
         <div className="flex gap-1 flex-wrap">
@@ -107,7 +107,7 @@ function JobsContent() {
               key={f.value}
               onClick={() => setStatusFilter(f.value)}
               className={cn(
-                "px-3 py-1 rounded text-[11px] font-medium uppercase tracking-wide border transition-colors",
+                "px-2.5 py-1 rounded-lg text-xs font-medium uppercase tracking-wide border transition-colors",
                 statusFilter === f.value
                   ? "border-blue-500/60 bg-blue-500/15 text-blue-300"
                   : "border-transparent text-gray-500 hover:text-gray-300 hover:bg-[var(--bg-elevated)]"
@@ -125,7 +125,7 @@ function JobsContent() {
           ))}
         </div>
 
-        <div className="relative ml-auto">
+        <div className="relative w-full sm:w-auto sm:ml-auto">
           <RiSearchLine
             className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none"
             style={{ color: "var(--text-muted)" }}
@@ -135,7 +135,7 @@ function JobsContent() {
             placeholder="Search jobs…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-8 pr-3 py-1.5 rounded border text-xs w-56 focus:outline-none focus:border-blue-500/60"
+            className="pl-8 pr-3 py-1.5 rounded-lg border text-sm w-full sm:w-56 focus:outline-none focus:border-blue-500/60"
             style={{
               background: "var(--bg-elevated)",
               borderColor: "var(--border)",
@@ -145,7 +145,7 @@ function JobsContent() {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Content */}
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
           <PageLoader />
@@ -161,33 +161,53 @@ function JobsContent() {
             }
           />
         ) : (
-          <table className="w-full text-xs">
-            <thead>
-              <tr
-                className="text-[10px] uppercase tracking-widest border-b"
-                style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
-              >
-                <Th>Status</Th>
-                <Th>Title</Th>
-                <Th>Repo / Branch</Th>
-                <Th>Priority</Th>
-                <Th>Worker</Th>
-                <Th>Updated</Th>
-                <Th>ID</Th>
-                <Th>Actions</Th>
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            {/* Desktop table — hidden on small screens */}
+            <div className="hidden sm:block">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr
+                    className="text-xs uppercase tracking-widest border-b"
+                    style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
+                  >
+                    <Th>Status</Th>
+                    <Th>Title</Th>
+                    <Th>Repo / Branch</Th>
+                    <Th>Priority</Th>
+                    <Th>Worker</Th>
+                    <Th>Updated</Th>
+                    <Th>ID</Th>
+                    <Th>Actions</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((job) => (
+                    <JobRow
+                      key={job.id}
+                      job={job}
+                      onNavigate={() => router.push(`/jobs/${job.id}`)}
+                      onMutate={refresh}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile cards — shown only on small screens */}
+            <div
+              className="block sm:hidden divide-y"
+              style={{ borderColor: "var(--border-subtle)" }}
+            >
               {filtered.map((job) => (
-                <JobRow
+                <JobCard
                   key={job.id}
                   job={job}
                   onNavigate={() => router.push(`/jobs/${job.id}`)}
                   onMutate={refresh}
                 />
               ))}
-            </tbody>
-          </table>
+            </div>
+          </>
         )}
       </div>
     </div>
@@ -312,6 +332,114 @@ function JobRow({
         </div>
       </Td>
     </tr>
+  );
+}
+
+/** Mobile card view for a single job. */
+function JobCard({
+  job,
+  onNavigate,
+  onMutate,
+}: {
+  job: Job;
+  onNavigate: () => void;
+  onMutate: () => void;
+}) {
+  const status = job.status as JobStatus;
+  const canCancel = CANCELLABLE.includes(status);
+  const canPurge  = PURGEABLE.includes(status);
+
+  return (
+    <div
+      className="px-4 py-4"
+      style={{ background: "var(--bg-surface)" }}
+    >
+      {/* Top row: status + time */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <JobStatusBadge status={status} />
+          {job.escalated === 1 && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium text-red-400 bg-red-400/10 border border-red-400/20">
+              <RiAlertLine className="w-3 h-3" />
+              Escalated
+            </span>
+          )}
+          {job.parent_job_id && !job.escalated && (
+            <span className="px-1.5 py-0.5 rounded text-xs font-medium text-amber-400/80 bg-amber-400/8 border border-amber-400/15">
+              Repair
+            </span>
+          )}
+        </div>
+        <span className="text-xs shrink-0" style={{ color: "var(--text-muted)" }}>
+          {relativeTime(job.updated_at)}
+        </span>
+      </div>
+
+      {/* Title */}
+      <div
+        className="text-sm font-medium leading-snug mb-1 cursor-pointer hover:text-blue-300 transition-colors"
+        style={{ color: "var(--text-primary)" }}
+        onClick={onNavigate}
+      >
+        {job.title}
+      </div>
+
+      {/* Repo + branch */}
+      <div className="flex items-center gap-2 flex-wrap mb-3">
+        <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
+          {repoName(job.repo_url)}
+        </span>
+        {job.work_branch && (
+          <span className="text-xs font-mono truncate max-w-[180px]" style={{ color: "var(--text-muted)" }}>
+            {job.work_branch}
+          </span>
+        )}
+        <span
+          className={cn(
+            "px-1.5 py-0.5 rounded text-xs font-semibold",
+            job.priority <= 2
+              ? "bg-red-500/10 text-red-400"
+              : job.priority <= 4
+              ? "bg-amber-500/10 text-amber-400"
+              : "bg-gray-500/10 text-gray-500"
+          )}
+        >
+          P{job.priority}
+        </span>
+      </div>
+
+      {/* Actions */}
+      {(canCancel || canPurge) && (
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          {canCancel && (
+            <ConfirmButton
+              label="Cancel"
+              confirmLabel="Cancel job?"
+              variant="warning"
+              size="xs"
+              icon={<RiCloseLine className="w-3 h-3" />}
+              onConfirm={async () => {
+                await cancelJob(job.id);
+                onMutate();
+              }}
+            />
+          )}
+          {canPurge && (
+            <ConfirmButton
+              label="Delete"
+              confirmLabel="Delete forever?"
+              variant="danger"
+              size="xs"
+              icon={<RiDeleteBinLine className="w-3 h-3" />}
+              onConfirm={async () => {
+                await purgeJob(job.id);
+                onMutate();
+              }}
+            />
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
