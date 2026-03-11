@@ -64,7 +64,7 @@ export default function WorkersPage() {
         }
       />
 
-          <div className="flex-1 p-6 overflow-y-auto">
+      <div className="flex-1 p-4 md:p-6 overflow-y-auto pb-24 md:pb-6">
         {isLoading ? (
           <PageLoader />
         ) : error ? (
@@ -146,7 +146,7 @@ function WorkerRow({ worker, onRemove }: { worker: Worker; onRemove: () => void 
             {caps.map((cap) => (
               <span
                 key={cap}
-                className="px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide"
+                className="px-2 py-0.5 rounded text-xs font-medium uppercase tracking-wide"
                 style={{
                   background: "var(--bg-elevated)",
                   color: "var(--text-secondary)",
@@ -161,13 +161,13 @@ function WorkerRow({ worker, onRemove }: { worker: Worker; onRemove: () => void 
 
         {/* Right: metadata */}
         <div className="text-right shrink-0 space-y-1.5">
-          <div className="text-[11px] font-mono" style={{ color: "var(--text-muted)" }}>
+          <div className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>
             {shortId(worker.id)}
           </div>
-          <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+          <div className="text-xs" style={{ color: "var(--text-muted)" }}>
             seen {relativeTime(worker.last_seen_at)}
           </div>
-          <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+          <div className="text-xs" style={{ color: "var(--text-muted)" }}>
             registered {relativeTime(worker.created_at)}
           </div>
           {(worker.computed_status === "offline" || worker.computed_status === "stale") && (
@@ -191,7 +191,7 @@ function WorkerRow({ worker, onRemove }: { worker: Worker; onRemove: () => void 
       {/* Stale / offline warning */}
       {isUnhealthy && (
         <div
-          className="mt-3 px-3 py-2 rounded text-[11px] flex items-center gap-2"
+          className="mt-3 px-3 py-2 rounded-lg text-xs flex items-center gap-2"
           style={{ background: "rgba(239,68,68,0.06)", color: "#f87171" }}
         >
           <RiAlertLine className="w-3.5 h-3.5 shrink-0" />

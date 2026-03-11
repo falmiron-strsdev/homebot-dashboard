@@ -21,14 +21,14 @@ export function StatCard({ label, value, sub, accent, onClick }: StatCardProps) 
       }}
       onClick={onClick}
     >
-      <div className="text-[11px] uppercase tracking-wider font-medium" style={{ color: "var(--text-muted)" }}>
+      <div className="text-xs uppercase tracking-wider font-medium" style={{ color: "var(--text-muted)" }}>
         {label}
       </div>
-      <div className={cn("text-2xl font-semibold tabular-nums", accent ?? "text-gray-100")}>
+      <div className={cn("text-3xl font-semibold tabular-nums leading-tight", accent ?? "text-gray-100")}>
         {value}
       </div>
       {sub && (
-        <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+        <div className="text-xs" style={{ color: "var(--text-muted)" }}>
           {sub}
         </div>
       )}

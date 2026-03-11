@@ -30,7 +30,7 @@ export default function UsagePage() {
         isRefreshing={isRefreshing}
       />
 
-      <div className="flex-1 p-6 overflow-y-auto space-y-6">
+      <div className="flex-1 p-4 md:p-6 overflow-y-auto space-y-6 pb-24 md:pb-6">
         {isLoading ? (
           <PageLoader />
         ) : error ? (
@@ -40,7 +40,7 @@ export default function UsagePage() {
             {/* What IS available */}
             <section>
               <SectionLabel>Run activity (available now)</SectionLabel>
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <StatCard label="Total jobs" value={data.total_jobs} />
                 <StatCard label="Total runs" value={data.total_runs} />
                 <StatCard
@@ -54,7 +54,7 @@ export default function UsagePage() {
                   accent={data.failed_runs > 0 ? "text-red-400" : undefined}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3 mt-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                 <StatCard
                   label="Total runtime"
                   value={formatDuration(data.total_runtime_seconds)}
@@ -72,11 +72,12 @@ export default function UsagePage() {
             {data.per_worker.length > 0 && (
               <section>
                 <SectionLabel>Per-worker breakdown</SectionLabel>
-                <Card noPad>
-                  <table className="w-full text-xs">
+                {/* Desktop table */}
+                <Card noPad className="hidden sm:block">
+                  <table className="w-full text-sm">
                     <thead>
                       <tr
-                        className="text-[10px] uppercase tracking-widest border-b"
+                        className="text-xs uppercase tracking-widest border-b"
                         style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
                       >
                         <Th>Worker ID</Th>
@@ -98,7 +99,7 @@ export default function UsagePage() {
                             style={{ borderColor: "var(--border-subtle)" }}
                           >
                             <Td>
-                              <span className="font-mono text-[10px]">
+                              <span className="font-mono text-xs">
                                 {shortId(w.worker_id)}
                               </span>
                             </Td>
@@ -129,6 +130,45 @@ export default function UsagePage() {
                     </tbody>
                   </table>
                 </Card>
+
+                {/* Mobile cards */}
+                <div className="block sm:hidden space-y-2">
+                  {data.per_worker.map((w) => {
+                    const rate =
+                      w.runs > 0 ? Math.round((w.completed / w.runs) * 100) : null;
+                    return (
+                      <Card key={w.worker_id}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-mono text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
+                            {shortId(w.worker_id)}
+                          </span>
+                          {rate !== null && (
+                            <span className={`text-sm font-semibold ${rate >= 80 ? "text-emerald-400" : "text-amber-400"}`}>
+                              {rate}%
+                            </span>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          <div>
+                            <div className="text-[11px] uppercase tracking-wide mb-0.5" style={{ color: "var(--text-muted)" }}>Runs</div>
+                            <div style={{ color: "var(--text-primary)" }}>{w.runs}</div>
+                          </div>
+                          <div>
+                            <div className="text-[11px] uppercase tracking-wide mb-0.5" style={{ color: "var(--text-muted)" }}>Done</div>
+                            <div className="text-emerald-400">{w.completed}</div>
+                          </div>
+                          <div>
+                            <div className="text-[11px] uppercase tracking-wide mb-0.5" style={{ color: "var(--text-muted)" }}>Failed</div>
+                            <div className={w.failed > 0 ? "text-red-400" : "text-gray-500"}>{w.failed}</div>
+                          </div>
+                        </div>
+                        <div className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
+                          Runtime: {formatDuration(w.runtime_seconds)}
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
               </section>
             )}
 

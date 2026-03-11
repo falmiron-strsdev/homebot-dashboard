@@ -27,13 +27,13 @@ export default function Header({
     >
       <div>
         <h1
-          className="text-sm font-semibold tracking-wide"
+          className="text-base font-semibold tracking-tight"
           style={{ color: "var(--text-primary)" }}
         >
           {title}
         </h1>
         {subtitle && (
-          <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+          <p className="text-xs mt-0.5 leading-snug" style={{ color: "var(--text-muted)" }}>
             {subtitle}
           </p>
         )}
@@ -41,7 +41,7 @@ export default function Header({
 
       <div className="flex items-center gap-3">
         {lastUpdated && (
-          <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+          <span className="text-xs hidden sm:inline" style={{ color: "var(--text-muted)" }}>
             updated {lastUpdated}
           </span>
         )}
@@ -49,7 +49,7 @@ export default function Header({
           <button
             onClick={onRefresh}
             disabled={isRefreshing}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors disabled:opacity-50"
             style={{
               borderColor: "var(--border)",
               color: "var(--text-secondary)",

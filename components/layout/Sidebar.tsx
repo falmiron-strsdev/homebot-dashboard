@@ -44,10 +44,10 @@ export default function Sidebar() {
           H
         </div>
         <div>
-          <div className="text-xs font-semibold tracking-wide" style={{ color: "var(--text-primary)" }}>
+          <div className="text-sm font-semibold tracking-tight" style={{ color: "var(--text-primary)" }}>
             HomeBot
           </div>
-          <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+          <div className="text-xs" style={{ color: "var(--text-muted)" }}>
             Orchestrator
           </div>
         </div>
@@ -62,7 +62,7 @@ export default function Sidebar() {
               key={href}
               href={href}
               className={cn(
-                "flex items-center gap-2.5 px-3 py-2 rounded text-xs font-medium transition-colors",
+                "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                 isActive
                   ? "text-white bg-blue-600/20 border border-blue-500/30"
                   : "border border-transparent hover:bg-[var(--bg-hover)]"
@@ -72,7 +72,7 @@ export default function Sidebar() {
               <Icon className="w-4 h-4 shrink-0" />
               <span className="flex-1">{label}</span>
               <span
-                className="text-[9px] px-1 py-0.5 rounded"
+                className="text-[10px] px-1 py-0.5 rounded"
                 style={{
                   background: "var(--bg-hover)",
                   color: "var(--text-muted)",
@@ -88,7 +88,7 @@ export default function Sidebar() {
 
       {/* Footer */}
       <div
-        className="px-4 py-3 border-t text-[10px]"
+        className="px-4 py-3 border-t text-xs"
         style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
       >
         <div>Pi · 192.168.1.222:8000</div>
