@@ -6,6 +6,8 @@ export type JobStatus =
   | "queued"
   | "assigned"
   | "running"
+  | "security_pending"
+  | "security_running"
   | "review"
   | "qa_running"
   | "completed"
@@ -89,6 +91,8 @@ export interface OverviewStats {
     queued: number;
     assigned: number;
     running: number;
+    security_pending: number;
+    security_running: number;
     review: number;
     qa_running: number;
     completed: number;

@@ -21,16 +21,17 @@ const STATUS_FILTERS: { label: string; value: string }[] = [
   { label: "Queued",     value: "queued" },
   { label: "Running",    value: "running" },
   { label: "Assigned",   value: "assigned" },
+  { label: "Security",   value: "security_running" },
   { label: "Review",     value: "review" },
   { label: "QA",         value: "qa_running" },
   { label: "Completed",  value: "completed" },
   { label: "Failed",     value: "failed" },
   { label: "Cancelled",  value: "cancelled" },
-  { label: "Escalated",  value: "escalated" },  // pseudo-filter
+  { label: "Escalated",  value: "escalated" },
 ];
 
 const CANCELLABLE: JobStatus[] = ["queued", "assigned"];
-const PURGEABLE:   JobStatus[] = ["review", "qa_running", "completed", "failed", "cancelled"];
+const PURGEABLE:   JobStatus[] = ["review", "security_pending", "security_running", "qa_running", "completed", "failed", "cancelled"];
 
 function JobsContent() {
   const router = useRouter();

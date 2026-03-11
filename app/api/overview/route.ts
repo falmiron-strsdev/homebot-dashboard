@@ -23,6 +23,8 @@ export async function GET() {
       queued: 0,
       assigned: 0,
       running: 0,
+      security_pending: 0,
+      security_running: 0,
       review: 0,
       qa_running: 0,
       completed: 0,

@@ -23,12 +23,12 @@ import {
   commitUrl,
 } from "@/lib/utils";
 import type { Job, JobEvent, Run, Worker, JobStatus } from "@/lib/types";
-import { RiCloseLine, RiDeleteBinLine, RiCheckDoubleLine, RiRocketLine, RiAlertLine, RiShieldCheckLine, RiShieldLine, RiFileCopyLine, RiCheckLine } from "react-icons/ri";
+import { RiCloseLine, RiDeleteBinLine, RiCheckDoubleLine, RiRocketLine, RiAlertLine, RiShieldCheckLine, RiShieldLine, RiShieldUserLine, RiFileCopyLine, RiCheckLine } from "react-icons/ri";
 
 const CANCELLABLE:  JobStatus[] = ["queued", "assigned"];
-const COMPLETABLE:  JobStatus[] = ["review", "qa_running"];
-const DEPLOYABLE:   JobStatus[] = ["review", "qa_running", "completed"];
-const PURGEABLE:    JobStatus[] = ["review", "qa_running", "completed", "failed", "cancelled"];
+const COMPLETABLE:  JobStatus[] = ["review", "qa_running", "security_pending", "security_running"];
+const DEPLOYABLE:   JobStatus[] = ["review", "qa_running", "security_pending", "security_running", "completed"];
+const PURGEABLE:    JobStatus[] = ["review", "security_pending", "security_running", "qa_running", "completed", "failed", "cancelled"];
 
 export default function JobDetailPage({
   params,
@@ -180,6 +180,22 @@ export default function JobDetailPage({
               <div className="text-sm font-semibold text-red-400">Escalated — needs human review</div>
               <div className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
                 {job.escalation_reason}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Security running banner */}
+        {(job.status === "security_running" || job.status === "security_pending") && (
+          <div
+            className="px-4 py-3 rounded-lg border flex items-center gap-3"
+            style={{ background: "rgba(251,146,60,0.06)", borderColor: "rgba(251,146,60,0.3)" }}
+          >
+            <RiShieldUserLine className="w-5 h-5 text-orange-400 shrink-0 animate-pulse" />
+            <div>
+              <div className="text-sm font-semibold text-orange-400">Security Audit in progress</div>
+              <div className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                Claude is auditing the code for vulnerabilities. High/critical issues will block merge.
               </div>
             </div>
           </div>
@@ -568,8 +584,17 @@ function RunRow({ run, repoUrl }: { run: Run; repoUrl: string }) {
 }
 
 const EVENT_TYPE_COLORS: Record<string, string> = {
-  created:       "text-gray-400",
-  assigned:      "text-indigo-400",
+  created:            "text-gray-400",
+  assigned:           "text-indigo-400",
+  security_claimed:   "text-orange-400",
+  security_started:   "text-orange-400",
+  security_auditing:  "text-orange-300",
+  security_passed:    "text-emerald-400",
+  security_failed:    "text-red-400",
+  security_report:    "text-orange-300",
+  security_warnings:  "text-amber-400",
+  security_no_branch: "text-gray-400",
+  security_error:     "text-amber-400",
   status_change: "text-blue-400",
   cancelled:     "text-gray-500",
   error:         "text-red-400",

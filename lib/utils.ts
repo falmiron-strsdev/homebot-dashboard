@@ -57,31 +57,37 @@ export const WORKER_DOT_COLORS: Record<WorkerStatus, string> = {
 // ── Jobs ──────────────────────────────────────────────────────────────────────
 
 export const JOB_STATUS_COLORS: Record<JobStatus, string> = {
-  queued:     "text-slate-300 bg-slate-500/15",
-  assigned:   "text-indigo-400 bg-indigo-400/10",
-  running:    "text-blue-400 bg-blue-400/10",
-  review:     "text-purple-400 bg-purple-400/10",
-  qa_running: "text-cyan-400 bg-cyan-400/10",
-  completed:  "text-emerald-400 bg-emerald-400/10",
-  failed:     "text-red-400 bg-red-400/10",
-  cancelled:  "text-gray-500 bg-gray-500/10",
+  queued:            "text-slate-300 bg-slate-500/15",
+  assigned:          "text-indigo-400 bg-indigo-400/10",
+  running:           "text-blue-400 bg-blue-400/10",
+  security_pending:  "text-orange-400 bg-orange-400/10",
+  security_running:  "text-orange-400 bg-orange-400/10",
+  review:            "text-purple-400 bg-purple-400/10",
+  qa_running:        "text-cyan-400 bg-cyan-400/10",
+  completed:         "text-emerald-400 bg-emerald-400/10",
+  failed:            "text-red-400 bg-red-400/10",
+  cancelled:         "text-gray-500 bg-gray-500/10",
 };
 
 export const JOB_DOT_COLORS: Record<JobStatus, string> = {
-  queued:     "bg-slate-400",
-  assigned:   "bg-indigo-400",
-  running:    "bg-blue-400",
-  review:     "bg-purple-400",
-  qa_running: "bg-cyan-400",
-  completed:  "bg-emerald-400",
-  failed:     "bg-red-400",
-  cancelled:  "bg-gray-500",
+  queued:            "bg-slate-400",
+  assigned:          "bg-indigo-400",
+  running:           "bg-blue-400",
+  security_pending:  "bg-orange-400",
+  security_running:  "bg-orange-400",
+  review:            "bg-purple-400",
+  qa_running:        "bg-cyan-400",
+  completed:         "bg-emerald-400",
+  failed:            "bg-red-400",
+  cancelled:         "bg-gray-500",
 };
 
 export const JOB_STATUS_ORDER: JobStatus[] = [
   "queued",
   "assigned",
   "running",
+  "security_pending",
+  "security_running",
   "review",
   "qa_running",
   "completed",

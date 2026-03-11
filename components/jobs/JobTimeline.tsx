@@ -5,23 +5,26 @@ import { cn } from "@/lib/utils";
 import { RiCheckLine, RiCloseLine } from "react-icons/ri";
 
 const STAGES: { status: JobStatus; label: string }[] = [
-  { status: "queued",     label: "Queued" },
-  { status: "assigned",   label: "Assigned" },
-  { status: "running",    label: "Running" },
-  { status: "review",     label: "Review" },
-  { status: "qa_running", label: "QA" },
-  { status: "completed",  label: "Done" },
+  { status: "queued",           label: "Queued" },
+  { status: "assigned",         label: "Assigned" },
+  { status: "running",          label: "Running" },
+  { status: "security_running", label: "Security" },
+  { status: "review",           label: "Review" },
+  { status: "qa_running",       label: "QA" },
+  { status: "completed",        label: "Done" },
 ];
 
 const STATUS_ORDER: Record<JobStatus, number> = {
-  queued:     0,
-  assigned:   1,
-  running:    2,
-  review:     3,
-  qa_running: 4,
-  completed:  5,
-  failed:     3,
-  cancelled:  1,
+  queued:            0,
+  assigned:          1,
+  running:           2,
+  security_pending:  3,
+  security_running:  3,
+  review:            4,
+  qa_running:        5,
+  completed:         6,
+  failed:            3,
+  cancelled:         1,
 };
 
 interface JobTimelineProps {
