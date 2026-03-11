@@ -42,6 +42,58 @@ Because haptics degrade gracefully, the UI is fully functional everywhere — th
 
 The glass styling scales from 360 px (mobile) through tablet and desktop widths. The desktop `/chat` page uses the same glass tokens but with slightly more relaxed spacing (`md:` Tailwind breakpoints). The mobile PWA (`/mobile`) applies the most aggressive blur and glow effects suitable for a full-screen, touch-primary context.
 
+## Chat Session History
+
+Chat transcripts are persisted server-side in a SQLite database so that conversations survive page reloads and can be resumed later from the history rail.
+
+### Storage location
+
+```
+<project-root>/data/chat-sessions.db
+```
+
+The `data/` directory is created automatically on first use. The file is a standard SQLite3 database and can be opened with any SQLite tool.
+
+### Schema
+
+| Table | Columns | Notes |
+|---|---|---|
+| `sessions` | `id`, `title`, `created_at`, `updated_at`, `last_message_preview` | One row per conversation |
+| `messages` | `id`, `session_id`, `role`, `content`, `created_at`, `model`, `duration_ms`, `usage_*` | One row per message; FK cascade-deletes when session is removed |
+
+The database uses WAL journal mode for better concurrent read performance.
+
+### Backup
+
+To back up history, copy `data/chat-sessions.db` while the server is not writing (or use SQLite's online-backup API):
+
+```bash
+sqlite3 data/chat-sessions.db ".backup data/chat-sessions.bak.db"
+```
+
+For automated backups add a cron job that copies the file to a safe location.
+
+### Purging history
+
+Delete all sessions:
+
+```bash
+sqlite3 data/chat-sessions.db "DELETE FROM sessions;"
+# messages are removed automatically via ON DELETE CASCADE
+```
+
+Or delete a single session by ID:
+
+```bash
+sqlite3 data/chat-sessions.db "DELETE FROM sessions WHERE id = 'dashboard-XXXXXXXX';"
+```
+
+Alternatively use the **Delete** button in the history rail in the UI, or call `DELETE /api/sessions/<id>`.
+
+### Graceful degradation
+
+If the database cannot be opened (e.g. the `data/` directory is read-only), the UI shows a non-blocking amber warning banner. All chat functionality remains available — messages are simply not persisted.
+
 ## Getting Started
 
 First, run the development server:
