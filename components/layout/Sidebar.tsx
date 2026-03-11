@@ -13,12 +13,12 @@ import {
 } from "react-icons/ri";
 
 const NAV = [
-  { href: "/",         label: "Overview", Icon: RiDashboardLine },
-  { href: "/workers",  label: "Workers",  Icon: RiServerLine },
-  { href: "/jobs",     label: "Jobs",     Icon: RiBriefcaseLine },
-  { href: "/activity", label: "Activity", Icon: RiPulseLine },
-  { href: "/usage",    label: "Usage",    Icon: RiBarChartBoxLine },
-  { href: "/chat",     label: "Chat",     Icon: RiRobotLine },
+  { href: "/",         label: "Overview", Icon: RiDashboardLine, shortcut: "G+O" },
+  { href: "/workers",  label: "Workers",  Icon: RiServerLine,    shortcut: "G+W" },
+  { href: "/jobs",     label: "Jobs",     Icon: RiBriefcaseLine, shortcut: "G+J" },
+  { href: "/activity", label: "Activity", Icon: RiPulseLine,     shortcut: "G+A" },
+  { href: "/usage",    label: "Usage",    Icon: RiBarChartBoxLine, shortcut: "G+U" },
+  { href: "/chat",     label: "Chat",     Icon: RiRobotLine,     shortcut: "G+C" },
 ];
 
 export default function Sidebar() {
@@ -55,7 +55,7 @@ export default function Sidebar() {
 
       {/* Nav links */}
       <div className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
-        {NAV.map(({ href, label, Icon }) => {
+        {NAV.map(({ href, label, Icon, shortcut }) => {
           const isActive = href === "/" ? pathname === "/" : pathname.startsWith(href);
           return (
             <Link
@@ -70,7 +70,17 @@ export default function Sidebar() {
               style={isActive ? { color: "#93c5fd" } : { color: "var(--text-secondary)" }}
             >
               <Icon className="w-4 h-4 shrink-0" />
-              {label}
+              <span className="flex-1">{label}</span>
+              <span
+                className="text-[9px] px-1 py-0.5 rounded"
+                style={{
+                  background: "var(--bg-hover)",
+                  color: "var(--text-muted)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                {shortcut}
+              </span>
             </Link>
           );
         })}
