@@ -64,6 +64,24 @@ body {
   animation: pulse-dot 1.5s ease-in-out infinite;
 }
 
+/* Typing indicator dots */
+@keyframes bounce-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30% { transform: translateY(-5px); opacity: 1; }
+}
+.bounce-dot {
+  animation: bounce-dot 1.2s ease-in-out infinite;
+}
+
+/* Mobile message entrance */
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.message-enter {
+  animation: fadeSlideUp 0.18s ease-out;
+}
+
 /* Subtle shimmer for loading states */
 @keyframes shimmer {
   0% { background-position: -200% 0; }

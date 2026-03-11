@@ -43,10 +43,15 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [sessionId, setSessionId] = useState(newSessionId);
+  const [sessionId, setSessionId] = useState("");
   const [orchAvailable, setOrchAvailable] = useState<boolean | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Initialize session ID on client only to avoid SSR hydration mismatch
+  useEffect(() => {
+    setSessionId(newSessionId());
+  }, []);
 
   // Check OpenClaw availability on mount
   useEffect(() => {
