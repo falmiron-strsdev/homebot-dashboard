@@ -1,5 +1,47 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Mobile Glass Chat UI
+
+The chat interface (`/chat` and the mobile PWA at `/mobile`) uses a layered **glass morphism** aesthetic inspired by iOS/visionOS 2025–2026 design language.
+
+### Visual design
+
+- **Translucent surfaces** — header, composer, and message bubbles use `backdrop-filter: blur()` with semi-transparent backgrounds, creating depth against the dark base.
+- **Gradient borders** — every glass surface uses the CSS `padding-box` / `border-box` background technique to produce subtle luminous borders without extra DOM elements.
+- **Ambient glow** — user bubbles emit a soft blue `box-shadow` glow; error bubbles glow red. The agent icon pulses a faint blue halo.
+- **Spring entrance animations** — new messages animate in with a scale + fade spring (`msg-spring-in` CSS keyframe) for a physical, responsive feel.
+- **Glass-loop shimmer** — the message composer gains a slow left-to-right light-sweep (`::after` pseudo-element) whenever the textarea is focused, mimicking a VisionOS glass highlight.
+
+### Haptic feedback (`lib/useHaptics.ts`)
+
+On compatible devices the UI fires tactile vibration via `navigator.vibrate`:
+
+| Event | Pattern |
+|---|---|
+| Send tap | `[12 ms]` — single crisp pulse |
+| Assistant reply arrives | `[10, 50, 10 ms]` — double pulse |
+| Error response | `[30, 60, 30 ms]` — heavy triple |
+
+The hook **feature-detects** `navigator.vibrate` and **no-ops silently** when:
+- the API is absent (all iOS Safari, Firefox desktop, most desktop Chromium)
+- the page/tab is not currently visible (`document.visibilityState !== "visible"`)
+
+**Browsers / devices that can feel haptics:**
+
+| Platform | Support |
+|---|---|
+| Android Chrome / Samsung Internet | ✅ Full support via `navigator.vibrate` |
+| Chrome on Android WebView / TWA | ✅ Supported |
+| iOS Safari (all versions) | ❌ `navigator.vibrate` not implemented |
+| Desktop Chrome / Firefox / Safari | ❌ Not implemented |
+| Firefox Android | ✅ Supported |
+
+Because haptics degrade gracefully, the UI is fully functional everywhere — the vibrations are an optional enhancement layer.
+
+### Responsive scaling
+
+The glass styling scales from 360 px (mobile) through tablet and desktop widths. The desktop `/chat` page uses the same glass tokens but with slightly more relaxed spacing (`md:` Tailwind breakpoints). The mobile PWA (`/mobile`) applies the most aggressive blur and glow effects suitable for a full-screen, touch-primary context.
+
 ## Getting Started
 
 First, run the development server:

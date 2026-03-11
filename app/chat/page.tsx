@@ -2,7 +2,17 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
-import { RiSendPlaneLine, RiLoaderLine, RiAddLine, RiRobotLine, RiUserLine, RiAlertLine, RiFileCopyLine, RiCheckLine } from "react-icons/ri";
+import { useHaptics } from "@/lib/useHaptics";
+import {
+  RiSendPlaneLine,
+  RiLoaderLine,
+  RiAddLine,
+  RiRobotLine,
+  RiUserLine,
+  RiAlertLine,
+  RiFileCopyLine,
+  RiCheckLine,
+} from "react-icons/ri";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -37,6 +47,36 @@ function uid() {
   return Math.random().toString(36).slice(2);
 }
 
+// ── Gradient border helper (padding-box / border-box technique) ────────────
+
+const glassBubbleAssistant: React.CSSProperties = {
+  background:
+    "linear-gradient(var(--glass-bg), var(--glass-bg)) padding-box," +
+    "linear-gradient(135deg, var(--glass-border-bright), var(--glass-border)) border-box",
+  border: "1px solid transparent",
+  backdropFilter: "var(--glass-blur-light)",
+  WebkitBackdropFilter: "var(--glass-blur-light)" as React.CSSProperties["backdropFilter"],
+  boxShadow: "0 2px 12px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04)",
+};
+
+const glassBubbleUser: React.CSSProperties = {
+  background:
+    "linear-gradient(rgba(29,78,216,0.82), rgba(37,99,235,0.72)) padding-box," +
+    "linear-gradient(135deg, rgba(96,165,250,0.55), rgba(29,78,216,0.25)) border-box",
+  border: "1px solid transparent",
+  backdropFilter: "var(--glass-blur-light)",
+  WebkitBackdropFilter: "var(--glass-blur-light)" as React.CSSProperties["backdropFilter"],
+  boxShadow: "0 0 20px var(--glow-user), 0 2px 8px rgba(0,0,0,0.25)",
+};
+
+const glassBubbleError: React.CSSProperties = {
+  background:
+    "linear-gradient(rgba(239,68,68,0.08), rgba(239,68,68,0.05)) padding-box," +
+    "linear-gradient(135deg, rgba(239,68,68,0.35), rgba(239,68,68,0.15)) border-box",
+  border: "1px solid transparent",
+  boxShadow: "0 0 16px var(--glow-error)",
+};
+
 // ── Main component ──────────────────────────────────────────────────────────
 
 export default function ChatPage() {
@@ -45,8 +85,10 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState("");
   const [orchAvailable, setOrchAvailable] = useState<boolean | null>(null);
+  const [composerFocused, setComposerFocused] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const { fire: haptic } = useHaptics();
 
   // Initialize session ID on client only to avoid SSR hydration mismatch
   useEffect(() => {
@@ -83,6 +125,7 @@ export default function ChatPage() {
       setMessages((prev) => [...prev, userMsg]);
       setInput("");
       setLoading(true);
+      haptic("send");
 
       try {
         const res = await fetch("/api/chat", {
@@ -94,6 +137,7 @@ export default function ChatPage() {
         const data = await res.json();
 
         if (!res.ok) {
+          haptic("error");
           setMessages((prev) => [
             ...prev,
             {
@@ -104,6 +148,7 @@ export default function ChatPage() {
             },
           ]);
         } else {
+          haptic("reply");
           setMessages((prev) => [
             ...prev,
             {
@@ -118,6 +163,7 @@ export default function ChatPage() {
           ]);
         }
       } catch (err) {
+        haptic("error");
         setMessages((prev) => [
           ...prev,
           {
@@ -132,7 +178,7 @@ export default function ChatPage() {
         inputRef.current?.focus();
       }
     },
-    [loading, sessionId]
+    [loading, sessionId, haptic]
   );
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -149,52 +195,95 @@ export default function ChatPage() {
     inputRef.current?.focus();
   }
 
+  // Gradient border for the composer
+  const composerBorder: React.CSSProperties = composerFocused
+    ? {
+        background:
+          "linear-gradient(var(--glass-bg-elevated), var(--glass-bg-elevated)) padding-box," +
+          "linear-gradient(135deg, rgba(59,130,246,0.55), rgba(139,92,246,0.30), rgba(59,130,246,0.20)) border-box",
+        border: "1px solid transparent",
+        boxShadow: "0 0 0 3px rgba(29,78,216,0.12), 0 4px 20px rgba(0,0,0,0.3)",
+      }
+    : {
+        background:
+          "linear-gradient(var(--glass-bg-elevated), var(--glass-bg-elevated)) padding-box," +
+          "linear-gradient(135deg, var(--glass-border-bright), var(--glass-border), var(--glass-border-bright)) border-box",
+        border: "1px solid transparent",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+      };
+
   return (
     <div className="flex flex-col h-screen">
-      {/* Header */}
+      {/* ── Header ── */}
       <div
-        className="flex items-center justify-between px-6 py-4 border-b shrink-0"
-        style={{ borderColor: "var(--border)" }}
+        className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 shrink-0 sticky top-0 z-10"
+        style={{
+          background: "var(--glass-bg-heavy)",
+          backdropFilter: "var(--glass-blur)",
+          WebkitBackdropFilter: "var(--glass-blur)" as React.CSSProperties["backdropFilter"],
+          borderBottom: "1px solid var(--glass-border)",
+          boxShadow: "0 1px 0 var(--glass-border-bright), 0 4px 24px rgba(0,0,0,0.35)",
+        }}
       >
-        <div>
-          <h1 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-            OpenClaw
-          </h1>
-          <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-            Natural language orchestrator interface · session{" "}
-            <span className="font-mono">{sessionId.replace("dashboard-", "")}</span>
-          </p>
-        </div>
         <div className="flex items-center gap-3">
+          {/* Agent icon */}
+          <div
+            className="w-8 h-8 md:w-9 md:h-9 rounded-xl flex items-center justify-center shrink-0"
+            style={{
+              background:
+                "linear-gradient(rgba(29,78,216,0.18), rgba(29,78,216,0.10)) padding-box," +
+                "linear-gradient(135deg, rgba(96,165,250,0.40), rgba(29,78,216,0.20)) border-box",
+              border: "1px solid transparent",
+              boxShadow: "0 0 14px var(--glow-blue)",
+            }}
+          >
+            <RiRobotLine className="w-4 h-4 text-blue-400" />
+          </div>
+
+          <div>
+            <h1 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+              OpenClaw
+            </h1>
+            <p className="text-[10px] mt-0.5 hidden md:block" style={{ color: "var(--text-muted)" }}>
+              Natural language orchestrator · session{" "}
+              <span className="font-mono">{sessionId.replace("dashboard-", "")}</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 md:gap-3">
           {orchAvailable === false && (
             <div className="flex items-center gap-1.5 text-amber-400 text-xs">
               <RiAlertLine className="w-3.5 h-3.5" />
-              OpenClaw unavailable
+              <span className="hidden sm:inline">OpenClaw unavailable</span>
             </div>
           )}
           {orchAvailable === true && (
             <div className="flex items-center gap-1.5 text-emerald-400 text-xs">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse-dot" />
-              OpenClaw ready
+              <span className="hidden sm:inline">Ready</span>
             </div>
           )}
           <button
             onClick={newChat}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs font-medium transition-colors"
+            className="flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
             style={{
-              borderColor: "var(--border)",
+              background:
+                "linear-gradient(var(--glass-bg-elevated), var(--glass-bg-elevated)) padding-box," +
+                "linear-gradient(135deg, var(--glass-border-bright), var(--glass-border)) border-box",
+              border: "1px solid transparent",
               color: "var(--text-secondary)",
-              background: "var(--bg-elevated)",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
             }}
           >
             <RiAddLine className="w-3.5 h-3.5" />
-            New chat
+            <span className="hidden sm:inline">New chat</span>
           </button>
         </div>
       </div>
 
-      {/* Messages area */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+      {/* ── Messages area ── */}
+      <div className="flex-1 overflow-y-auto px-3 md:px-6 py-4 space-y-3">
         {messages.length === 0 && !loading && (
           <WelcomeScreen onPrompt={(p) => send(p)} available={orchAvailable} />
         )}
@@ -207,12 +296,18 @@ export default function ChatPage() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input area */}
+      {/* ── Input area ── */}
       <div
-        className="shrink-0 border-t px-6 py-4"
-        style={{ borderColor: "var(--border)", background: "var(--bg-surface)" }}
+        className="shrink-0 px-3 md:px-6 pb-4 pt-3"
+        style={{
+          background: "var(--glass-bg-heavy)",
+          backdropFilter: "var(--glass-blur)",
+          WebkitBackdropFilter: "var(--glass-blur)" as React.CSSProperties["backdropFilter"],
+          borderTop: "1px solid var(--glass-border)",
+          boxShadow: "0 -1px 0 var(--glass-border-bright), 0 -4px 20px rgba(0,0,0,0.2)",
+        }}
       >
-        {/* Quick prompts (only when empty) */}
+        {/* Quick prompts — only shown when chat is empty */}
         {messages.length === 0 && (
           <div className="flex gap-2 flex-wrap mb-3">
             {QUICK_PROMPTS.slice(0, 4).map((p) => (
@@ -220,11 +315,14 @@ export default function ChatPage() {
                 key={p}
                 onClick={() => send(p)}
                 disabled={loading}
-                className="px-3 py-1.5 rounded border text-[11px] transition-colors disabled:opacity-50 hover:border-blue-500/50 hover:text-blue-300"
+                className="px-3 py-1.5 rounded-lg text-[11px] transition-all disabled:opacity-50"
                 style={{
-                  borderColor: "var(--border)",
+                  background:
+                    "linear-gradient(var(--glass-bg), var(--glass-bg)) padding-box," +
+                    "linear-gradient(135deg, var(--glass-border-bright), var(--glass-border)) border-box",
+                  border: "1px solid transparent",
                   color: "var(--text-secondary)",
-                  background: "var(--bg-elevated)",
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
                 }}
               >
                 {p}
@@ -233,15 +331,21 @@ export default function ChatPage() {
           </div>
         )}
 
+        {/* Composer */}
         <div
-          className="flex items-end gap-3 rounded-lg border px-3 py-2"
-          style={{ borderColor: "var(--border)", background: "var(--bg-elevated)" }}
+          className={cn(
+            "flex items-end gap-3 rounded-2xl px-3 py-2 transition-all duration-200",
+            composerFocused && "glass-shimmer"
+          )}
+          style={composerBorder}
         >
           <textarea
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
+            onFocus={() => setComposerFocused(true)}
+            onBlur={() => setComposerFocused(false)}
             placeholder="Ask OpenClaw anything… (Enter to send, Shift+Enter for newline)"
             disabled={loading || orchAvailable === false}
             rows={1}
@@ -251,8 +355,18 @@ export default function ChatPage() {
           <button
             onClick={() => send(input)}
             disabled={loading || !input.trim() || orchAvailable === false}
-            className="shrink-0 w-8 h-8 rounded flex items-center justify-center transition-colors disabled:opacity-40"
-            style={{ background: input.trim() && !loading ? "#1d4ed8" : "var(--bg-hover)" }}
+            className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all disabled:opacity-40"
+            style={
+              input.trim() && !loading
+                ? {
+                    background: "rgba(29,78,216,0.9)",
+                    boxShadow: "0 0 16px var(--glow-blue-bright), 0 2px 4px rgba(0,0,0,0.3)",
+                  }
+                : {
+                    background: "var(--bg-hover)",
+                    boxShadow: "none",
+                  }
+            }
           >
             {loading ? (
               <RiLoaderLine className="w-4 h-4 animate-spin text-gray-400" />
@@ -261,6 +375,7 @@ export default function ChatPage() {
             )}
           </button>
         </div>
+
         <p className="text-[10px] mt-2 text-center" style={{ color: "var(--text-muted)" }}>
           GPT-5.1-codex via OpenClaw · Pi 192.168.1.222 · responses take 15–60 s
         </p>
@@ -279,41 +394,59 @@ function WelcomeScreen({
   available: boolean | null;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center h-full py-16 text-center">
+    <div className="flex flex-col items-center justify-center h-full py-12 md:py-16 text-center">
+      {/* Glowing icon */}
       <div
-        className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
-        style={{ background: "rgba(29,78,216,0.15)", border: "1px solid rgba(29,78,216,0.3)" }}
+        className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5"
+        style={{
+          background:
+            "linear-gradient(rgba(29,78,216,0.18), rgba(29,78,216,0.08)) padding-box," +
+            "linear-gradient(135deg, rgba(96,165,250,0.45), rgba(29,78,216,0.20)) border-box",
+          border: "1px solid transparent",
+          boxShadow: "0 0 32px var(--glow-blue), 0 0 64px rgba(29,78,216,0.10)",
+        }}
       >
         <RiRobotLine className="w-7 h-7 text-blue-400" />
       </div>
-      <h2 className="text-sm font-semibold mb-1" style={{ color: "var(--text-primary)" }}>
+
+      <h2 className="text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
         OpenClaw Agent
       </h2>
-      <p className="text-xs max-w-sm mb-6" style={{ color: "var(--text-muted)" }}>
-        Ask in plain English. Queue jobs, check workers, inspect runs, create GitHub repos — OpenClaw handles it.
+      <p className="text-xs max-w-xs mb-6 leading-relaxed" style={{ color: "var(--text-muted)" }}>
+        Ask in plain English. Queue jobs, check workers, inspect runs, create GitHub repos —
+        OpenClaw handles it.
       </p>
 
       {available === false && (
         <div
-          className="flex items-center gap-2 px-4 py-3 rounded-lg border mb-6 text-xs text-amber-400"
-          style={{ borderColor: "rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.06)" }}
+          className="flex items-center gap-2 px-4 py-3 rounded-xl mb-6 text-xs text-amber-400 max-w-sm"
+          style={{
+            background:
+              "linear-gradient(rgba(245,158,11,0.07), rgba(245,158,11,0.04)) padding-box," +
+              "linear-gradient(135deg, rgba(245,158,11,0.35), rgba(245,158,11,0.15)) border-box",
+            border: "1px solid transparent",
+          }}
         >
           <RiAlertLine className="w-4 h-4 shrink-0" />
           OpenClaw binary not found on the Pi. Check that the gateway service is running.
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-2 max-w-lg w-full">
+      {/* Quick prompt grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-lg w-full px-2">
         {QUICK_PROMPTS.map((p) => (
           <button
             key={p}
             onClick={() => onPrompt(p)}
             disabled={available === false}
-            className="text-left px-4 py-3 rounded-lg border text-xs transition-colors hover:border-blue-500/40 hover:bg-blue-500/5 disabled:opacity-40"
+            className="text-left px-4 py-3 rounded-xl text-xs transition-all disabled:opacity-40"
             style={{
-              borderColor: "var(--border)",
+              background:
+                "linear-gradient(var(--glass-bg), var(--glass-bg)) padding-box," +
+                "linear-gradient(135deg, var(--glass-border-bright), var(--glass-border)) border-box",
+              border: "1px solid transparent",
               color: "var(--text-secondary)",
-              background: "var(--bg-surface)",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
             }}
           >
             {p}
@@ -326,11 +459,11 @@ function WelcomeScreen({
 
 function ThinkingBubble() {
   return (
-    <div className="flex items-start gap-3">
+    <div className="flex items-start gap-2.5 msg-spring-in">
       <AgentAvatar />
       <div
-        className="px-4 py-3 rounded-xl rounded-tl-sm text-xs max-w-[85%]"
-        style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}
+        className="px-4 py-3 rounded-2xl rounded-tl-sm text-xs max-w-[85%]"
+        style={glassBubbleAssistant}
       >
         <div className="flex items-center gap-2" style={{ color: "var(--text-muted)" }}>
           <RiLoaderLine className="w-3.5 h-3.5 animate-spin" />
@@ -353,25 +486,26 @@ function MessageBubble({ message }: { message: Message }) {
     });
   }
 
+  const bubbleStyle: React.CSSProperties = isUser
+    ? glassBubbleUser
+    : isError
+    ? glassBubbleError
+    : glassBubbleAssistant;
+
   return (
-    <div className={cn("flex items-start gap-3", isUser && "flex-row-reverse")}>
+    <div className={cn("flex items-start gap-2.5 msg-spring-in", isUser && "flex-row-reverse")}>
       {isUser ? <UserAvatar /> : <AgentAvatar error={isError} />}
 
-      <div className={cn("flex flex-col gap-1 max-w-[85%]", isUser && "items-end")}>
+      <div className={cn("flex flex-col gap-1 max-w-[85%] min-w-0", isUser && "items-end")}>
         <div
           className={cn(
-            "px-4 py-3 rounded-xl text-xs leading-relaxed",
-            isUser
-              ? "rounded-tr-sm bg-blue-600/20 border border-blue-500/30 text-blue-100"
-              : isError
-              ? "rounded-tl-sm border border-red-500/30 bg-red-500/8 text-red-300"
-              : "rounded-tl-sm border"
+            "px-4 py-3 rounded-2xl text-xs leading-relaxed",
+            isUser ? "rounded-tr-sm" : "rounded-tl-sm"
           )}
-          style={
-            !isUser && !isError
-              ? { background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }
-              : undefined
-          }
+          style={{
+            ...bubbleStyle,
+            color: isUser ? "#dbeafe" : isError ? "#fca5a5" : "var(--text-primary)",
+          }}
         >
           {isUser ? (
             <span className="whitespace-pre-wrap">{message.content}</span>
@@ -380,27 +514,31 @@ function MessageBubble({ message }: { message: Message }) {
           )}
         </div>
 
-        <div className={cn("flex items-center gap-2 flex-wrap", isUser && "flex-row-reverse")}>
-          <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-            {message.ts.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-          </span>
+        <div
+          className={cn(
+            "flex items-center gap-2 flex-wrap text-[10px]",
+            isUser && "flex-row-reverse"
+          )}
+          style={{ color: "var(--text-muted)" }}
+        >
+          <span>{message.ts.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
           {message.duration_ms && (
-            <span className="text-[10px] opacity-60" style={{ color: "var(--text-muted)" }}>
-              {(message.duration_ms / 1000).toFixed(1)}s
-            </span>
+            <span className="opacity-60">{(message.duration_ms / 1000).toFixed(1)}s</span>
           )}
           {message.model && (
             <span
-              className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+              className="font-mono px-1.5 py-0.5 rounded text-[9px]"
               style={{ background: "var(--bg-elevated)", color: "var(--text-muted)" }}
             >
               {message.model}
             </span>
           )}
           {message.usage && (
-            <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+            <span>
               {message.usage.input.toLocaleString()} in · {message.usage.output.toLocaleString()} out
-              {message.usage.cacheRead ? ` · ${message.usage.cacheRead.toLocaleString()} cached` : ""}
+              {message.usage.cacheRead
+                ? ` · ${message.usage.cacheRead.toLocaleString()} cached`
+                : ""}
             </span>
           )}
           {!isUser && (
@@ -419,7 +557,6 @@ function MessageBubble({ message }: { message: Message }) {
 }
 
 function FormattedResponse({ content }: { content: string }) {
-  // Split into code blocks and text blocks
   const parts = content.split(/(```[\s\S]*?```)/g);
   return (
     <>
@@ -431,14 +568,17 @@ function FormattedResponse({ content }: { content: string }) {
           return (
             <pre
               key={i}
-              className="my-2 p-3 rounded text-[11px] font-mono overflow-x-auto"
-              style={{ background: "var(--bg-base)", color: "#86efac", border: "1px solid var(--border-subtle)" }}
+              className="my-2 p-3 rounded-lg text-[11px] font-mono overflow-x-auto"
+              style={{
+                background: "rgba(0,0,0,0.45)",
+                color: "#86efac",
+                border: "1px solid var(--border-subtle)",
+              }}
             >
               {code}
             </pre>
           );
         }
-        // Render inline formatting: **bold**, `code`, line breaks
         return (
           <span key={i}>
             {part.split("\n").map((line, j, arr) => {
@@ -446,14 +586,18 @@ function FormattedResponse({ content }: { content: string }) {
                 .split(/(\*\*[^*]+\*\*|`[^`]+`)/g)
                 .map((chunk, k) => {
                   if (chunk.startsWith("**") && chunk.endsWith("**")) {
-                    return <strong key={k} className="font-semibold text-gray-100">{chunk.slice(2, -2)}</strong>;
+                    return (
+                      <strong key={k} className="font-semibold text-gray-100">
+                        {chunk.slice(2, -2)}
+                      </strong>
+                    );
                   }
                   if (chunk.startsWith("`") && chunk.endsWith("`")) {
                     return (
                       <code
                         key={k}
                         className="font-mono text-[11px] px-1 rounded"
-                        style={{ background: "var(--bg-base)", color: "#93c5fd" }}
+                        style={{ background: "rgba(0,0,0,0.35)", color: "#93c5fd" }}
                       >
                         {chunk.slice(1, -1)}
                       </code>
@@ -480,8 +624,11 @@ function AgentAvatar({ error }: { error?: boolean }) {
     <div
       className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center"
       style={{
-        background: error ? "rgba(239,68,68,0.15)" : "rgba(29,78,216,0.2)",
-        border: `1px solid ${error ? "rgba(239,68,68,0.3)" : "rgba(29,78,216,0.4)"}`,
+        background: error
+          ? "linear-gradient(rgba(239,68,68,0.15), rgba(239,68,68,0.08)) padding-box, linear-gradient(135deg, rgba(239,68,68,0.40), rgba(239,68,68,0.15)) border-box"
+          : "linear-gradient(rgba(29,78,216,0.18), rgba(29,78,216,0.08)) padding-box, linear-gradient(135deg, rgba(96,165,250,0.40), rgba(29,78,216,0.15)) border-box",
+        border: "1px solid transparent",
+        boxShadow: error ? "0 0 8px var(--glow-error)" : "0 0 8px var(--glow-blue)",
       }}
     >
       {error ? (
@@ -497,7 +644,13 @@ function UserAvatar() {
   return (
     <div
       className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center"
-      style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)" }}
+      style={{
+        background:
+          "linear-gradient(var(--glass-bg-elevated), var(--glass-bg-elevated)) padding-box," +
+          "linear-gradient(135deg, var(--glass-border-bright), var(--glass-border)) border-box",
+        border: "1px solid transparent",
+        boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
+      }}
     >
       <RiUserLine className="w-3.5 h-3.5" style={{ color: "var(--text-secondary)" }} />
     </div>
