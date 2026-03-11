@@ -133,6 +133,11 @@ body {
   will-change: transform;
 }
 
+/* Mobile bottom nav safe-area padding */
+.bottom-nav-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 /* Subtle shimmer for loading states */
 @keyframes shimmer {
   0% { background-position: -200% 0; }

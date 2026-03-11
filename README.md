@@ -1,5 +1,51 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Mobile-Friendly Overview Dashboard
+
+The main dashboard (`/`) adapts automatically to phone-sized viewports (≤ 768 px) with a purpose-built mobile layout that matches the glass morphism design language used throughout the app.
+
+### How to test on mobile
+
+1. Run the dev server: `npm run dev`
+2. Open DevTools → toggle device toolbar (Ctrl/Cmd + Shift + M in Chrome/Firefox)
+3. Set the viewport to any width ≤ 768 px (e.g. iPhone 15 Pro, 393 × 852 px)
+4. Navigate to `http://localhost:3000` — the mobile layout activates automatically
+
+Alternatively, open the app on a real phone on the same network (use your machine's local IP, e.g. `http://192.168.1.x:3000`).
+
+### Mobile UX changes
+
+| Feature | Mobile (≤ 768 px) | Desktop (> 768 px) |
+|---|---|---|
+| **Navigation** | Glass bottom tab bar (Overview, Workers, Jobs, Activity, Chat) | Fixed left sidebar |
+| **Hero section** | At-a-glance glass card: system status, active workers, running/queued jobs, quick-action buttons | Not shown |
+| **Stat grids** | 2-column responsive grid | 4-column grid |
+| **Job/Deployment rows** | Short ID hidden; compact spacing | Full row with short ID |
+| **Content padding** | 16 px; extra bottom padding for bottom nav | 24 px |
+| **Footer** | Hidden (behind bottom nav) | Visible |
+
+### Bottom navigation
+
+A persistent glass nav bar sits at the bottom of every page on mobile, providing one-tap access to Overview, Workers, Jobs, Activity, and Chat. It respects iOS safe-area insets (`env(safe-area-inset-bottom)`) so it clears the iPhone home indicator.
+
+### Hero / at-a-glance section
+
+When the viewport is ≤ 768 px, a glass hero card appears at the top of the overview page showing:
+- System health status (operational / degraded / no workers) with an animated indicator
+- Active workers, running jobs, and queued jobs in a 3-column mini-grid
+- Quick-action buttons: **Chat**, **Jobs**, **Workers**
+
+The hero is hidden on tablet/desktop since the full stat grid + sidebar already surface the same information.
+
+### Notable considerations
+
+- The sidebar is hidden on mobile (`hidden md:flex`) to reclaim horizontal space.
+- All stat grids use `grid-cols-2 md:grid-cols-4` so they stay readable at 360 px.
+- The `shortId` column in job rows is hidden on mobile (`hidden sm:block`) to prevent crowding.
+- Desktop/tablet layouts are pixel-identical to the previous version — the responsive breakpoints only add mobile behaviour.
+
+---
+
 ## Mobile Glass Chat UI
 
 The chat interface (`/chat` and the mobile PWA at `/mobile`) uses a layered **glass morphism** aesthetic inspired by iOS/visionOS 2025–2026 design language.

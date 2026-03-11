@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Sidebar from "@/components/layout/Sidebar";
+import BottomNav from "@/components/layout/BottomNav";
 
 export const metadata: Metadata = {
   title: "HomeBot Dashboard",
@@ -23,11 +24,12 @@ export default function RootLayout({
       <body>
         <div className="flex min-h-screen">
           <Sidebar />
-          <main className="flex-1 ml-48 min-h-screen flex flex-col" style={{ background: "var(--bg-base)" }}>
+          <main className="flex-1 md:ml-48 min-h-screen flex flex-col" style={{ background: "var(--bg-base)" }}>
             {children}
           </main>
         </div>
-        <footer style={{
+        <BottomNav />
+        <footer className="hidden md:block" style={{
           position: "fixed",
           bottom: 0,
           left: 0,

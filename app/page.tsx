@@ -11,7 +11,7 @@ import { ErrorState, EmptyState } from "@/components/ui/EmptyState";
 import Header from "@/components/layout/Header";
 import { relativeTime, repoName, shortId } from "@/lib/utils";
 import type { Job, Deployment } from "@/lib/types";
-import { RiExternalLinkLine } from "react-icons/ri";
+import { RiExternalLinkLine, RiRefreshLine, RiRobotLine, RiBriefcaseLine, RiServerLine } from "react-icons/ri";
 
 export default function OverviewPage() {
   const router = useRouter();
@@ -24,6 +24,8 @@ export default function OverviewPage() {
 
   const { workers, jobs, deployments, recent_jobs, recent_failures } = data;
   const activeWorkers = workers.idle + workers.busy;
+  const systemHealthy = activeWorkers > 0 && workers.offline + workers.stale === 0;
+  const systemDegraded = workers.offline + workers.stale > 0;
 
   return (
     <div className="flex flex-col h-full">
@@ -35,11 +37,158 @@ export default function OverviewPage() {
         isRefreshing={isRefreshing}
       />
 
-      <div className="flex-1 p-6 space-y-6 overflow-y-auto">
+      <div className="flex-1 p-4 md:p-6 space-y-4 md:space-y-6 overflow-y-auto pb-24 md:pb-6">
+
+        {/* ── Mobile hero ────────────────────────────────────────────────── */}
+        <section className="md:hidden">
+          <div
+            className="rounded-xl p-4"
+            style={{
+              background: "var(--glass-bg)",
+              backdropFilter: "var(--glass-blur-light)",
+              WebkitBackdropFilter: "var(--glass-blur-light)",
+              border: "1px solid var(--glass-border-bright)",
+              boxShadow: systemHealthy
+                ? "0 0 24px var(--glow-blue)"
+                : systemDegraded
+                ? "0 0 24px rgba(245,158,11,0.15)"
+                : "none",
+            }}
+          >
+            {/* Status row */}
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                  System Status
+                </div>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span
+                    className={`w-2 h-2 rounded-full shrink-0 ${
+                      systemHealthy
+                        ? "bg-emerald-400 animate-pulse-dot"
+                        : systemDegraded
+                        ? "bg-amber-400 animate-pulse-dot"
+                        : "bg-gray-500"
+                    }`}
+                  />
+                  <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                    {systemHealthy
+                      ? "All systems operational"
+                      : systemDegraded
+                      ? `${workers.offline + workers.stale} worker(s) offline`
+                      : "No active workers"}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={refresh}
+                disabled={isRefreshing}
+                className="flex items-center justify-center w-8 h-8 rounded-lg border transition-colors disabled:opacity-50"
+                style={{ borderColor: "var(--border)", background: "var(--bg-elevated)" }}
+              >
+                <RiRefreshLine
+                  className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`}
+                  style={{ color: "var(--text-secondary)" }}
+                />
+              </button>
+            </div>
+
+            {/* At-a-glance stats */}
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              <div
+                className="text-center p-2.5 rounded-lg"
+                style={{ background: "var(--bg-elevated)" }}
+              >
+                <div className="text-2xl font-semibold text-emerald-400 tabular-nums">
+                  {activeWorkers}
+                </div>
+                <div
+                  className="text-[10px] uppercase tracking-wider mt-0.5"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  Workers
+                </div>
+              </div>
+              <div
+                className="text-center p-2.5 rounded-lg"
+                style={{ background: "var(--bg-elevated)" }}
+              >
+                <div className="text-2xl font-semibold text-blue-400 tabular-nums">
+                  {jobs.running + jobs.assigned}
+                </div>
+                <div
+                  className="text-[10px] uppercase tracking-wider mt-0.5"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  Running
+                </div>
+              </div>
+              <div
+                className="text-center p-2.5 rounded-lg"
+                style={{ background: "var(--bg-elevated)" }}
+              >
+                <div
+                  className={`text-2xl font-semibold tabular-nums ${
+                    jobs.queued > 0 ? "text-slate-300" : "text-gray-500"
+                  }`}
+                >
+                  {jobs.queued}
+                </div>
+                <div
+                  className="text-[10px] uppercase tracking-wider mt-0.5"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  Queued
+                </div>
+              </div>
+            </div>
+
+            {/* Quick actions */}
+            <div className="flex gap-2">
+              <Link
+                href="/chat"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-medium transition-colors"
+                style={{
+                  background: "rgba(29,78,216,0.25)",
+                  border: "1px solid rgba(59,130,246,0.3)",
+                  color: "#93c5fd",
+                }}
+              >
+                <RiRobotLine className="w-4 h-4" />
+                Chat
+              </Link>
+              <Link
+                href="/jobs"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-medium transition-colors"
+                style={{
+                  background: "var(--bg-elevated)",
+                  border: "1px solid var(--border)",
+                  color: "var(--text-secondary)",
+                }}
+              >
+                <RiBriefcaseLine className="w-4 h-4" />
+                Jobs
+              </Link>
+              <Link
+                href="/workers"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-medium transition-colors"
+                style={{
+                  background: "var(--bg-elevated)",
+                  border: "1px solid var(--border)",
+                  color: "var(--text-secondary)",
+                }}
+              >
+                <RiServerLine className="w-4 h-4" />
+                Workers
+              </Link>
+            </div>
+          </div>
+        </section>
+
         {/* Workers section */}
         <section>
           <SectionLabel>Workers</SectionLabel>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <StatCard
               label="Active"
               value={activeWorkers}
@@ -75,7 +224,7 @@ export default function OverviewPage() {
         {/* Jobs section */}
         <section>
           <SectionLabel>Jobs</SectionLabel>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <StatCard label="Total" value={jobs.total} onClick={() => router.push("/jobs")} />
             <StatCard
               label="Queued"
@@ -223,7 +372,7 @@ function DeploymentRow({ deployment }: { deployment: Deployment }) {
   const color = STATUS_COLORS[deployment.status] ?? "text-gray-400";
   return (
     <div
-      className="flex items-center gap-4 px-4 py-3"
+      className="flex items-center gap-3 px-4 py-3"
       style={{ background: "var(--bg-surface)" }}
     >
       <span className={`text-[11px] font-medium uppercase w-16 shrink-0 ${color}`}>
@@ -241,7 +390,9 @@ function DeploymentRow({ deployment }: { deployment: Deployment }) {
           rel="noreferrer"
           className="flex items-center gap-1 text-[11px] text-blue-400 hover:underline shrink-0"
         >
-          {displayUrl.replace("https://", "").split("/")[0]}
+          <span className="hidden sm:inline">
+            {displayUrl.replace("https://", "").split("/")[0]}
+          </span>
           <RiExternalLinkLine className="w-3 h-3" />
         </a>
       ) : (
@@ -257,7 +408,7 @@ function JobRow({ job }: { job: Job }) {
   return (
     <Link
       href={`/jobs/${job.id}`}
-      className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-[var(--bg-elevated)] group"
+      className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--bg-elevated)] group"
       style={{ background: "var(--bg-surface)" }}
     >
       <JobStatusBadge status={job.status} />
@@ -280,7 +431,7 @@ function JobRow({ job }: { job: Job }) {
       <div className="text-[11px] shrink-0" style={{ color: "var(--text-muted)" }}>
         {relativeTime(job.updated_at)}
       </div>
-      <div className="text-[10px] font-mono shrink-0" style={{ color: "var(--text-muted)" }}>
+      <div className="text-[10px] font-mono shrink-0 hidden sm:block" style={{ color: "var(--text-muted)" }}>
         {shortId(job.id)}
       </div>
     </Link>

@@ -26,7 +26,7 @@ export default function Sidebar() {
 
   return (
     <nav
-      className="fixed left-0 top-0 h-screen w-48 flex flex-col border-r z-10"
+      className="fixed left-0 top-0 h-screen w-48 hidden md:flex flex-col border-r z-10"
       style={{
         background: "var(--bg-surface)",
         borderColor: "var(--border)",
