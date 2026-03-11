@@ -23,7 +23,7 @@ import {
   commitUrl,
 } from "@/lib/utils";
 import type { Job, JobEvent, Run, Worker, JobStatus } from "@/lib/types";
-import { RiCloseLine, RiDeleteBinLine, RiCheckDoubleLine, RiRocketLine, RiAlertLine, RiShieldCheckLine, RiShieldLine } from "react-icons/ri";
+import { RiCloseLine, RiDeleteBinLine, RiCheckDoubleLine, RiRocketLine, RiAlertLine, RiShieldCheckLine, RiShieldLine, RiFileCopyLine, RiCheckLine } from "react-icons/ri";
 
 const CANCELLABLE:  JobStatus[] = ["queued", "assigned"];
 const COMPLETABLE:  JobStatus[] = ["review", "qa_running"];
@@ -282,7 +282,10 @@ export default function JobDetailPage({
               <CardTitle>Job details</CardTitle>
               <dl className="space-y-2.5">
                 <MetaRow label="ID">
-                  <span className="font-mono text-[11px]">{job.id}</span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="font-mono text-[11px]">{job.id}</span>
+                    <CopyButton text={job.id} />
+                  </span>
                 </MetaRow>
                 <MetaRow label="Repo">
                   {ghRepoUrl ? (
@@ -446,6 +449,20 @@ export default function JobDetailPage({
         </div>
       </div>
     </div>
+  );
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+      className="opacity-50 hover:opacity-100 transition-opacity"
+      style={{ color: "var(--text-muted)", lineHeight: 1 }}
+      title="Copy to clipboard"
+    >
+      {copied ? <RiCheckLine className="w-3 h-3 text-emerald-400" /> : <RiFileCopyLine className="w-3 h-3" />}
+    </button>
   );
 }
 
