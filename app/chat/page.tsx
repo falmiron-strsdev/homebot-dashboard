@@ -1,0 +1,500 @@
+"use client";
+
+import { useState, useRef, useEffect, useCallback } from "react";
+import { cn } from "@/lib/utils";
+import { RiSendPlaneLine, RiLoaderLine, RiAddLine, RiRobotLine, RiUserLine, RiAlertLine, RiFileCopyLine, RiCheckLine } from "react-icons/ri";
+
+// ── Types ──────────────────────────────────────────────────────────────────
+
+type Role = "user" | "assistant" | "error";
+
+interface Message {
+  id: string;
+  role: Role;
+  content: string;
+  ts: Date;
+  duration_ms?: number;
+  model?: string;
+  usage?: { input: number; output: number; total: number; cacheRead?: number };
+}
+
+const QUICK_PROMPTS = [
+  "What jobs are currently running?",
+  "Show me worker status",
+  "What happened with the last failed job?",
+  "Queue a job to update the README in test-repo",
+  "Create a new GitHub repo called my-new-project and queue an initial setup job",
+  "How many jobs have been completed today?",
+];
+
+// ── Session helpers ────────────────────────────────────────────────────────
+
+function newSessionId() {
+  return `dashboard-${Date.now()}`;
+}
+
+function uid() {
+  return Math.random().toString(36).slice(2);
+}
+
+// ── Main component ──────────────────────────────────────────────────────────
+
+export default function ChatPage() {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [sessionId, setSessionId] = useState(newSessionId);
+  const [orchAvailable, setOrchAvailable] = useState<boolean | null>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Check OpenClaw availability on mount
+  useEffect(() => {
+    fetch("/api/chat")
+      .then((r) => r.json())
+      .then((d) => setOrchAvailable(d.openclaw_available === true))
+      .catch(() => setOrchAvailable(false));
+  }, []);
+
+  // Scroll to bottom on new messages
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, [input]);
+
+  const send = useCallback(
+    async (text: string) => {
+      const msg = text.trim();
+      if (!msg || loading) return;
+
+      const userMsg: Message = { id: uid(), role: "user", content: msg, ts: new Date() };
+      setMessages((prev) => [...prev, userMsg]);
+      setInput("");
+      setLoading(true);
+
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: msg, session_id: sessionId }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: uid(),
+              role: "error",
+              content: data.error ?? `Error ${res.status}`,
+              ts: new Date(),
+            },
+          ]);
+        } else {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: uid(),
+              role: "assistant",
+              content: data.reply,
+              ts: new Date(),
+              duration_ms: data.duration_ms,
+              model: data.model,
+              usage: data.usage,
+            },
+          ]);
+        }
+      } catch (err) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: uid(),
+            role: "error",
+            content: err instanceof Error ? err.message : "Network error",
+            ts: new Date(),
+          },
+        ]);
+      } finally {
+        setLoading(false);
+        inputRef.current?.focus();
+      }
+    },
+    [loading, sessionId]
+  );
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      send(input);
+    }
+  }
+
+  function newChat() {
+    setMessages([]);
+    setSessionId(newSessionId());
+    setInput("");
+    inputRef.current?.focus();
+  }
+
+  return (
+    <div className="flex flex-col h-screen">
+      {/* Header */}
+      <div
+        className="flex items-center justify-between px-6 py-4 border-b shrink-0"
+        style={{ borderColor: "var(--border)" }}
+      >
+        <div>
+          <h1 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+            OpenClaw
+          </h1>
+          <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+            Natural language orchestrator interface · session{" "}
+            <span className="font-mono">{sessionId.replace("dashboard-", "")}</span>
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          {orchAvailable === false && (
+            <div className="flex items-center gap-1.5 text-amber-400 text-xs">
+              <RiAlertLine className="w-3.5 h-3.5" />
+              OpenClaw unavailable
+            </div>
+          )}
+          {orchAvailable === true && (
+            <div className="flex items-center gap-1.5 text-emerald-400 text-xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse-dot" />
+              OpenClaw ready
+            </div>
+          )}
+          <button
+            onClick={newChat}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs font-medium transition-colors"
+            style={{
+              borderColor: "var(--border)",
+              color: "var(--text-secondary)",
+              background: "var(--bg-elevated)",
+            }}
+          >
+            <RiAddLine className="w-3.5 h-3.5" />
+            New chat
+          </button>
+        </div>
+      </div>
+
+      {/* Messages area */}
+      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+        {messages.length === 0 && !loading && (
+          <WelcomeScreen onPrompt={(p) => send(p)} available={orchAvailable} />
+        )}
+
+        {messages.map((msg) => (
+          <MessageBubble key={msg.id} message={msg} />
+        ))}
+
+        {loading && <ThinkingBubble />}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input area */}
+      <div
+        className="shrink-0 border-t px-6 py-4"
+        style={{ borderColor: "var(--border)", background: "var(--bg-surface)" }}
+      >
+        {/* Quick prompts (only when empty) */}
+        {messages.length === 0 && (
+          <div className="flex gap-2 flex-wrap mb-3">
+            {QUICK_PROMPTS.slice(0, 4).map((p) => (
+              <button
+                key={p}
+                onClick={() => send(p)}
+                disabled={loading}
+                className="px-3 py-1.5 rounded border text-[11px] transition-colors disabled:opacity-50 hover:border-blue-500/50 hover:text-blue-300"
+                style={{
+                  borderColor: "var(--border)",
+                  color: "var(--text-secondary)",
+                  background: "var(--bg-elevated)",
+                }}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div
+          className="flex items-end gap-3 rounded-lg border px-3 py-2"
+          style={{ borderColor: "var(--border)", background: "var(--bg-elevated)" }}
+        >
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask OpenClaw anything… (Enter to send, Shift+Enter for newline)"
+            disabled={loading || orchAvailable === false}
+            rows={1}
+            className="flex-1 bg-transparent text-xs resize-none focus:outline-none leading-relaxed min-h-[22px]"
+            style={{ color: "var(--text-primary)" }}
+          />
+          <button
+            onClick={() => send(input)}
+            disabled={loading || !input.trim() || orchAvailable === false}
+            className="shrink-0 w-8 h-8 rounded flex items-center justify-center transition-colors disabled:opacity-40"
+            style={{ background: input.trim() && !loading ? "#1d4ed8" : "var(--bg-hover)" }}
+          >
+            {loading ? (
+              <RiLoaderLine className="w-4 h-4 animate-spin text-gray-400" />
+            ) : (
+              <RiSendPlaneLine className="w-4 h-4 text-white" />
+            )}
+          </button>
+        </div>
+        <p className="text-[10px] mt-2 text-center" style={{ color: "var(--text-muted)" }}>
+          GPT-5.1-codex via OpenClaw · Pi 192.168.1.222 · responses take 15–60 s
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Sub-components ─────────────────────────────────────────────────────────
+
+function WelcomeScreen({
+  onPrompt,
+  available,
+}: {
+  onPrompt: (p: string) => void;
+  available: boolean | null;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center h-full py-16 text-center">
+      <div
+        className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
+        style={{ background: "rgba(29,78,216,0.15)", border: "1px solid rgba(29,78,216,0.3)" }}
+      >
+        <RiRobotLine className="w-7 h-7 text-blue-400" />
+      </div>
+      <h2 className="text-sm font-semibold mb-1" style={{ color: "var(--text-primary)" }}>
+        OpenClaw Agent
+      </h2>
+      <p className="text-xs max-w-sm mb-6" style={{ color: "var(--text-muted)" }}>
+        Ask in plain English. Queue jobs, check workers, inspect runs, create GitHub repos — OpenClaw handles it.
+      </p>
+
+      {available === false && (
+        <div
+          className="flex items-center gap-2 px-4 py-3 rounded-lg border mb-6 text-xs text-amber-400"
+          style={{ borderColor: "rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.06)" }}
+        >
+          <RiAlertLine className="w-4 h-4 shrink-0" />
+          OpenClaw binary not found on the Pi. Check that the gateway service is running.
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-2 max-w-lg w-full">
+        {QUICK_PROMPTS.map((p) => (
+          <button
+            key={p}
+            onClick={() => onPrompt(p)}
+            disabled={available === false}
+            className="text-left px-4 py-3 rounded-lg border text-xs transition-colors hover:border-blue-500/40 hover:bg-blue-500/5 disabled:opacity-40"
+            style={{
+              borderColor: "var(--border)",
+              color: "var(--text-secondary)",
+              background: "var(--bg-surface)",
+            }}
+          >
+            {p}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ThinkingBubble() {
+  return (
+    <div className="flex items-start gap-3">
+      <AgentAvatar />
+      <div
+        className="px-4 py-3 rounded-xl rounded-tl-sm text-xs max-w-[85%]"
+        style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}
+      >
+        <div className="flex items-center gap-2" style={{ color: "var(--text-muted)" }}>
+          <RiLoaderLine className="w-3.5 h-3.5 animate-spin" />
+          OpenClaw is thinking…
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MessageBubble({ message }: { message: Message }) {
+  const [copied, setCopied] = useState(false);
+  const isUser = message.role === "user";
+  const isError = message.role === "error";
+
+  function copy() {
+    navigator.clipboard.writeText(message.content).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  return (
+    <div className={cn("flex items-start gap-3", isUser && "flex-row-reverse")}>
+      {isUser ? <UserAvatar /> : <AgentAvatar error={isError} />}
+
+      <div className={cn("flex flex-col gap-1 max-w-[85%]", isUser && "items-end")}>
+        <div
+          className={cn(
+            "px-4 py-3 rounded-xl text-xs leading-relaxed",
+            isUser
+              ? "rounded-tr-sm bg-blue-600/20 border border-blue-500/30 text-blue-100"
+              : isError
+              ? "rounded-tl-sm border border-red-500/30 bg-red-500/8 text-red-300"
+              : "rounded-tl-sm border"
+          )}
+          style={
+            !isUser && !isError
+              ? { background: "var(--bg-surface)", borderColor: "var(--border)", color: "var(--text-primary)" }
+              : undefined
+          }
+        >
+          {isUser ? (
+            <span className="whitespace-pre-wrap">{message.content}</span>
+          ) : (
+            <FormattedResponse content={message.content} />
+          )}
+        </div>
+
+        <div className={cn("flex items-center gap-2 flex-wrap", isUser && "flex-row-reverse")}>
+          <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+            {message.ts.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </span>
+          {message.duration_ms && (
+            <span className="text-[10px] opacity-60" style={{ color: "var(--text-muted)" }}>
+              {(message.duration_ms / 1000).toFixed(1)}s
+            </span>
+          )}
+          {message.model && (
+            <span
+              className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+              style={{ background: "var(--bg-elevated)", color: "var(--text-muted)" }}
+            >
+              {message.model}
+            </span>
+          )}
+          {message.usage && (
+            <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+              {message.usage.input.toLocaleString()} in · {message.usage.output.toLocaleString()} out
+              {message.usage.cacheRead ? ` · ${message.usage.cacheRead.toLocaleString()} cached` : ""}
+            </span>
+          )}
+          {!isUser && (
+            <button onClick={copy} className="hover:opacity-100 transition-opacity" title="Copy">
+              {copied ? (
+                <RiCheckLine className="w-3 h-3 text-emerald-400" />
+              ) : (
+                <RiFileCopyLine className="w-3 h-3" style={{ color: "var(--text-muted)" }} />
+              )}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FormattedResponse({ content }: { content: string }) {
+  // Split into code blocks and text blocks
+  const parts = content.split(/(```[\s\S]*?```)/g);
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.startsWith("```")) {
+          const lines = part.slice(3, -3).split("\n");
+          const lang = lines[0].trim();
+          const code = (lang && !/\s/.test(lang) ? lines.slice(1) : lines).join("\n").trim();
+          return (
+            <pre
+              key={i}
+              className="my-2 p-3 rounded text-[11px] font-mono overflow-x-auto"
+              style={{ background: "var(--bg-base)", color: "#86efac", border: "1px solid var(--border-subtle)" }}
+            >
+              {code}
+            </pre>
+          );
+        }
+        // Render inline formatting: **bold**, `code`, line breaks
+        return (
+          <span key={i}>
+            {part.split("\n").map((line, j, arr) => {
+              const formatted = line
+                .split(/(\*\*[^*]+\*\*|`[^`]+`)/g)
+                .map((chunk, k) => {
+                  if (chunk.startsWith("**") && chunk.endsWith("**")) {
+                    return <strong key={k} className="font-semibold text-gray-100">{chunk.slice(2, -2)}</strong>;
+                  }
+                  if (chunk.startsWith("`") && chunk.endsWith("`")) {
+                    return (
+                      <code
+                        key={k}
+                        className="font-mono text-[11px] px-1 rounded"
+                        style={{ background: "var(--bg-base)", color: "#93c5fd" }}
+                      >
+                        {chunk.slice(1, -1)}
+                      </code>
+                    );
+                  }
+                  return <span key={k}>{chunk}</span>;
+                });
+              return (
+                <span key={j}>
+                  {formatted}
+                  {j < arr.length - 1 && <br />}
+                </span>
+              );
+            })}
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
+function AgentAvatar({ error }: { error?: boolean }) {
+  return (
+    <div
+      className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center"
+      style={{
+        background: error ? "rgba(239,68,68,0.15)" : "rgba(29,78,216,0.2)",
+        border: `1px solid ${error ? "rgba(239,68,68,0.3)" : "rgba(29,78,216,0.4)"}`,
+      }}
+    >
+      {error ? (
+        <RiAlertLine className="w-3.5 h-3.5 text-red-400" />
+      ) : (
+        <RiRobotLine className="w-3.5 h-3.5 text-blue-400" />
+      )}
+    </div>
+  );
+}
+
+function UserAvatar() {
+  return (
+    <div
+      className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center"
+      style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)" }}
+    >
+      <RiUserLine className="w-3.5 h-3.5" style={{ color: "var(--text-secondary)" }} />
+    </div>
+  );
+}
