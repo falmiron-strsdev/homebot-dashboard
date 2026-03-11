@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useHaptics } from "@/lib/useHaptics";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -28,6 +29,37 @@ function uid() {
   return Math.random().toString(36).slice(2);
 }
 
+// ── Gradient border helpers ────────────────────────────────────────────────
+
+const glassAssistant: React.CSSProperties = {
+  background:
+    "linear-gradient(rgba(14,20,32,0.82), rgba(14,20,32,0.75)) padding-box," +
+    "linear-gradient(135deg, rgba(255,255,255,0.13), rgba(255,255,255,0.05)) border-box",
+  border: "1px solid transparent",
+  backdropFilter: "blur(16px) saturate(180%)",
+  WebkitBackdropFilter: "blur(16px) saturate(180%)" as React.CSSProperties["backdropFilter"],
+  boxShadow: "0 2px 14px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.045)",
+};
+
+const glassUser: React.CSSProperties = {
+  background:
+    "linear-gradient(rgba(29,78,216,0.88), rgba(37,99,235,0.78)) padding-box," +
+    "linear-gradient(135deg, rgba(96,165,250,0.60), rgba(29,78,216,0.25)) border-box",
+  border: "1px solid transparent",
+  backdropFilter: "blur(12px) saturate(160%)",
+  WebkitBackdropFilter: "blur(12px) saturate(160%)" as React.CSSProperties["backdropFilter"],
+  boxShadow:
+    "0 0 24px rgba(29,78,216,0.32), 0 2px 10px rgba(0,0,0,0.28)",
+};
+
+const glassError: React.CSSProperties = {
+  background:
+    "linear-gradient(rgba(239,68,68,0.10), rgba(239,68,68,0.06)) padding-box," +
+    "linear-gradient(135deg, rgba(239,68,68,0.38), rgba(239,68,68,0.14)) border-box",
+  border: "1px solid transparent",
+  boxShadow: "0 0 16px rgba(239,68,68,0.22)",
+};
+
 // ── Main Component ──────────────────────────────────────────────────────────
 
 export default function MobileChatPage() {
@@ -36,9 +68,11 @@ export default function MobileChatPage() {
   const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState("");
   const [orchAvailable, setOrchAvailable] = useState<boolean | null>(null);
+  const [composerFocused, setComposerFocused] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
+  const { fire: haptic } = useHaptics();
 
   useEffect(() => {
     setSessionId(`mobile-${Date.now()}`);
@@ -72,6 +106,7 @@ export default function MobileChatPage() {
       setMessages((prev) => [...prev, userMsg]);
       setInput("");
       setLoading(true);
+      haptic("send");
 
       try {
         const res = await fetch("/api/chat", {
@@ -83,11 +118,13 @@ export default function MobileChatPage() {
         const data = await res.json();
 
         if (!res.ok) {
+          haptic("error");
           setMessages((prev) => [
             ...prev,
             { id: uid(), role: "error", content: data.error ?? `Error ${res.status}`, ts: new Date() },
           ]);
         } else {
+          haptic("reply");
           setMessages((prev) => [
             ...prev,
             {
@@ -101,6 +138,7 @@ export default function MobileChatPage() {
           ]);
         }
       } catch (err) {
+        haptic("error");
         setMessages((prev) => [
           ...prev,
           {
@@ -115,7 +153,7 @@ export default function MobileChatPage() {
         inputRef.current?.focus();
       }
     },
-    [loading, sessionId]
+    [loading, sessionId, haptic]
   );
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -134,6 +172,23 @@ export default function MobileChatPage() {
 
   const isEmpty = messages.length === 0 && !loading;
 
+  // Focused vs idle gradient border for composer
+  const composerBorderStyle: React.CSSProperties = composerFocused
+    ? {
+        background:
+          "linear-gradient(rgba(22,29,46,0.85), rgba(22,29,46,0.85)) padding-box," +
+          "linear-gradient(135deg, rgba(59,130,246,0.58), rgba(139,92,246,0.32), rgba(59,130,246,0.22)) border-box",
+        border: "1px solid transparent",
+        boxShadow: "0 0 0 3px rgba(29,78,216,0.14), 0 4px 24px rgba(0,0,0,0.35)",
+      }
+    : {
+        background:
+          "linear-gradient(rgba(22,29,46,0.80), rgba(22,29,46,0.80)) padding-box," +
+          "linear-gradient(135deg, rgba(255,255,255,0.13), rgba(255,255,255,0.05), rgba(255,255,255,0.10)) border-box",
+        border: "1px solid transparent",
+        boxShadow: "0 2px 10px rgba(0,0,0,0.22)",
+      };
+
   return (
     <div
       style={{
@@ -150,32 +205,36 @@ export default function MobileChatPage() {
         style={{
           flexShrink: 0,
           paddingTop: "calc(env(safe-area-inset-top, 0px) + 12px)",
-          paddingBottom: 12,
+          paddingBottom: 14,
           paddingLeft: 20,
           paddingRight: 20,
-          background: "rgba(8,12,18,0.85)",
-          backdropFilter: "blur(20px) saturate(180%)",
-          WebkitBackdropFilter: "blur(20px) saturate(180%)",
-          borderBottom: "1px solid var(--border)",
+          background: "rgba(8,12,18,0.88)",
+          backdropFilter: "blur(28px) saturate(200%)",
+          WebkitBackdropFilter: "blur(28px) saturate(200%)",
+          borderBottom: "1px solid rgba(255,255,255,0.07)",
+          boxShadow: "0 1px 0 rgba(255,255,255,0.06), 0 4px 20px rgba(0,0,0,0.4)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           gap: 12,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {/* Bot icon */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {/* Bot icon with glow */}
           <div
             style={{
-              width: 36,
-              height: 36,
-              borderRadius: 10,
-              background: "rgba(29,78,216,0.2)",
-              border: "1px solid rgba(29,78,216,0.4)",
+              width: 38,
+              height: 38,
+              borderRadius: 12,
+              background:
+                "linear-gradient(rgba(29,78,216,0.20), rgba(29,78,216,0.10)) padding-box," +
+                "linear-gradient(135deg, rgba(96,165,250,0.50), rgba(29,78,216,0.22)) border-box",
+              border: "1px solid transparent",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
+              boxShadow: "0 0 18px rgba(29,78,216,0.28)",
             }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -188,35 +247,17 @@ export default function MobileChatPage() {
           </div>
 
           <div>
-            <div
-              style={{
-                fontSize: 15,
-                fontWeight: 600,
-                color: "var(--text-primary)",
-                lineHeight: 1.2,
-              }}
-            >
+            <div style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary)", lineHeight: 1.2 }}>
               OpenClaw
             </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-                marginTop: 2,
-              }}
-            >
+            <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 3 }}>
               {orchAvailable === true && (
                 <>
                   <span
                     className="animate-pulse-dot"
                     style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: "50%",
-                      background: "#34d399",
-                      display: "inline-block",
-                      flexShrink: 0,
+                      width: 6, height: 6, borderRadius: "50%",
+                      background: "#34d399", display: "inline-block", flexShrink: 0,
                     }}
                   />
                   <span style={{ fontSize: 11, color: "#34d399" }}>Ready</span>
@@ -224,16 +265,10 @@ export default function MobileChatPage() {
               )}
               {orchAvailable === false && (
                 <>
-                  <span
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: "50%",
-                      background: "#f59e0b",
-                      display: "inline-block",
-                      flexShrink: 0,
-                    }}
-                  />
+                  <span style={{
+                    width: 6, height: 6, borderRadius: "50%",
+                    background: "#f59e0b", display: "inline-block", flexShrink: 0,
+                  }} />
                   <span style={{ fontSize: 11, color: "#f59e0b" }}>Offline</span>
                 </>
               )}
@@ -248,16 +283,19 @@ export default function MobileChatPage() {
         <button
           onClick={newChat}
           style={{
-            width: 36,
-            height: 36,
-            borderRadius: 10,
-            border: "1px solid var(--border)",
-            background: "var(--bg-elevated)",
+            width: 38,
+            height: 38,
+            borderRadius: 11,
+            background:
+              "linear-gradient(rgba(22,29,46,0.85), rgba(22,29,46,0.85)) padding-box," +
+              "linear-gradient(135deg, rgba(255,255,255,0.13), rgba(255,255,255,0.05)) border-box",
+            border: "1px solid transparent",
             color: "var(--text-secondary)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             cursor: "pointer",
+            boxShadow: "0 1px 6px rgba(0,0,0,0.25)",
             WebkitTapHighlightColor: "transparent",
           }}
           title="New chat"
@@ -276,7 +314,7 @@ export default function MobileChatPage() {
           overflowY: "auto",
           overscrollBehavior: "contain",
           WebkitOverflowScrolling: "touch",
-          paddingTop: 16,
+          paddingTop: 12,
           paddingBottom: 8,
         }}
       >
@@ -296,25 +334,27 @@ export default function MobileChatPage() {
       <div
         style={{
           flexShrink: 0,
-          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)",
+          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 10px)",
           paddingTop: 10,
           paddingLeft: 12,
           paddingRight: 12,
-          background: "rgba(8,12,18,0.9)",
-          backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
-          borderTop: "1px solid var(--border)",
+          background: "rgba(8,12,18,0.90)",
+          backdropFilter: "blur(28px) saturate(200%)",
+          WebkitBackdropFilter: "blur(28px) saturate(200%)",
+          borderTop: "1px solid rgba(255,255,255,0.07)",
+          boxShadow: "0 -1px 0 rgba(255,255,255,0.06), 0 -4px 16px rgba(0,0,0,0.3)",
         }}
       >
         <div
+          className={composerFocused ? "glass-shimmer" : ""}
           style={{
             display: "flex",
             alignItems: "flex-end",
             gap: 8,
-            background: "var(--bg-elevated)",
-            border: "1px solid var(--border)",
-            borderRadius: 20,
+            borderRadius: 22,
             padding: "8px 8px 8px 16px",
+            transition: "box-shadow 0.2s ease",
+            ...composerBorderStyle,
           }}
         >
           <textarea
@@ -322,6 +362,8 @@ export default function MobileChatPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
+            onFocus={() => setComposerFocused(true)}
+            onBlur={() => setComposerFocused(false)}
             placeholder={orchAvailable === false ? "OpenClaw offline" : "Message OpenClaw…"}
             disabled={loading || orchAvailable === false}
             rows={1}
@@ -344,32 +386,32 @@ export default function MobileChatPage() {
             onClick={() => send(input)}
             disabled={loading || !input.trim() || orchAvailable === false}
             style={{
-              width: 34,
-              height: 34,
+              width: 36,
+              height: 36,
               borderRadius: "50%",
               border: "none",
               background:
                 input.trim() && !loading && orchAvailable !== false
-                  ? "#1d4ed8"
+                  ? "rgba(29,78,216,0.92)"
                   : "var(--bg-hover)",
+              boxShadow:
+                input.trim() && !loading && orchAvailable !== false
+                  ? "0 0 20px rgba(59,130,246,0.40), 0 2px 6px rgba(0,0,0,0.30)"
+                  : "none",
               color: "white",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               cursor: input.trim() && !loading ? "pointer" : "default",
               flexShrink: 0,
-              transition: "background 0.15s",
+              transition: "background 0.15s, box-shadow 0.15s",
               WebkitTapHighlightColor: "transparent",
             }}
           >
             {loading ? (
               <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
+                width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2"
                 style={{ opacity: 0.5, animation: "spin 1s linear infinite" }}
               >
                 <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
@@ -409,21 +451,24 @@ function WelcomeScreen({
         textAlign: "center",
       }}
     >
-      {/* Large icon */}
+      {/* Glowing icon */}
       <div
         style={{
-          width: 64,
-          height: 64,
-          borderRadius: 18,
-          background: "rgba(29,78,216,0.15)",
-          border: "1px solid rgba(29,78,216,0.3)",
+          width: 68,
+          height: 68,
+          borderRadius: 20,
+          background:
+            "linear-gradient(rgba(29,78,216,0.18), rgba(29,78,216,0.08)) padding-box," +
+            "linear-gradient(135deg, rgba(96,165,250,0.50), rgba(29,78,216,0.22)) border-box",
+          border: "1px solid transparent",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          marginBottom: 16,
+          marginBottom: 18,
+          boxShadow: "0 0 36px rgba(29,78,216,0.28), 0 0 72px rgba(29,78,216,0.10)",
         }}
       >
-        <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
           <rect x="3" y="11" width="18" height="10" rx="3" stroke="#60a5fa" strokeWidth="1.5" />
           <path d="M9 11V8a3 3 0 0 1 6 0v3" stroke="#60a5fa" strokeWidth="1.5" />
           <circle cx="9" cy="16" r="1.5" fill="#60a5fa" />
@@ -432,18 +477,16 @@ function WelcomeScreen({
         </svg>
       </div>
 
-      <div
-        style={{ fontSize: 18, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8 }}
-      >
+      <div style={{ fontSize: 19, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8 }}>
         OpenClaw Agent
       </div>
       <div
         style={{
           fontSize: 13,
           color: "var(--text-muted)",
-          lineHeight: 1.5,
+          lineHeight: 1.55,
           maxWidth: 280,
-          marginBottom: 24,
+          marginBottom: 28,
         }}
       >
         Ask in plain English. Queue jobs, check workers, inspect runs, create repos.
@@ -455,14 +498,16 @@ function WelcomeScreen({
             display: "flex",
             alignItems: "center",
             gap: 8,
-            padding: "10px 14px",
-            borderRadius: 12,
-            border: "1px solid rgba(245,158,11,0.3)",
-            background: "rgba(245,158,11,0.06)",
+            padding: "10px 16px",
+            borderRadius: 14,
+            background:
+              "linear-gradient(rgba(245,158,11,0.08), rgba(245,158,11,0.04)) padding-box," +
+              "linear-gradient(135deg, rgba(245,158,11,0.38), rgba(245,158,11,0.14)) border-box",
+            border: "1px solid transparent",
             color: "#f59e0b",
             fontSize: 12,
-            marginBottom: 20,
-            maxWidth: 280,
+            marginBottom: 22,
+            maxWidth: 290,
             textAlign: "left",
           }}
         >
@@ -473,14 +518,14 @@ function WelcomeScreen({
         </div>
       )}
 
-      {/* Quick prompt chips */}
+      {/* Quick prompt chips with glass styling */}
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
-          gap: 8,
+          gap: 9,
           width: "100%",
-          maxWidth: 340,
+          maxWidth: 350,
         }}
       >
         {QUICK_PROMPTS.map((p) => (
@@ -489,17 +534,20 @@ function WelcomeScreen({
             onClick={() => onPrompt(p)}
             disabled={available === false}
             style={{
-              padding: "10px 12px",
-              borderRadius: 12,
-              border: "1px solid var(--border)",
-              background: "var(--bg-surface)",
+              padding: "11px 13px",
+              borderRadius: 14,
+              background:
+                "linear-gradient(rgba(14,20,32,0.85), rgba(14,20,32,0.75)) padding-box," +
+                "linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04)) border-box",
+              border: "1px solid transparent",
               color: "var(--text-secondary)",
               fontSize: 12,
               textAlign: "left",
               cursor: available === false ? "default" : "pointer",
               opacity: available === false ? 0.4 : 1,
               WebkitTapHighlightColor: "transparent",
-              lineHeight: 1.3,
+              lineHeight: 1.35,
+              boxShadow: "0 1px 6px rgba(0,0,0,0.20)",
             }}
           >
             {p}
@@ -519,21 +567,22 @@ function TypingIndicator() {
         gap: 8,
         paddingTop: 4,
         paddingBottom: 4,
-        animation: "fadeIn 0.2s ease-out",
       }}
-      className="message-enter"
+      className="msg-spring-in"
     >
+      {/* Agent avatar */}
       <div
         style={{
-          width: 28,
-          height: 28,
-          borderRadius: "50%",
-          background: "rgba(29,78,216,0.15)",
-          border: "1px solid rgba(29,78,216,0.3)",
+          width: 28, height: 28, borderRadius: "50%",
+          background:
+            "linear-gradient(rgba(29,78,216,0.18), rgba(29,78,216,0.08)) padding-box," +
+            "linear-gradient(135deg, rgba(96,165,250,0.45), rgba(29,78,216,0.18)) border-box",
+          border: "1px solid transparent",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           flexShrink: 0,
+          boxShadow: "0 0 10px rgba(29,78,216,0.22)",
         }}
       >
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
@@ -543,21 +592,21 @@ function TypingIndicator() {
           <circle cx="15" cy="16" r="1.5" fill="#60a5fa" />
         </svg>
       </div>
+      {/* Typing bubble */}
       <div
         style={{
           padding: "12px 16px",
           borderRadius: 18,
           borderBottomLeftRadius: 4,
-          background: "var(--bg-surface)",
-          border: "1px solid var(--border)",
           display: "flex",
           alignItems: "center",
           gap: 5,
+          ...glassAssistant,
         }}
       >
         <span className="bounce-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--text-muted)", display: "inline-block" }} />
         <span className="bounce-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--text-muted)", display: "inline-block", animationDelay: "0.15s" }} />
-        <span className="bounce-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--text-muted)", display: "inline-block", animationDelay: "0.3s" }} />
+        <span className="bounce-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--text-muted)", display: "inline-block", animationDelay: "0.30s" }} />
       </div>
     </div>
   );
@@ -576,10 +625,11 @@ function MessageBubble({ message }: { message: Message }) {
   }
 
   const time = message.ts.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const bubbleStyle = isUser ? glassUser : isError ? glassError : glassAssistant;
 
   return (
     <div
-      className="message-enter"
+      className="msg-spring-in"
       style={{
         display: "flex",
         flexDirection: "column",
@@ -593,23 +643,25 @@ function MessageBubble({ message }: { message: Message }) {
           alignItems: "flex-end",
           gap: 8,
           flexDirection: isUser ? "row-reverse" : "row",
-          maxWidth: "85%",
+          maxWidth: "88%",
         }}
       >
-        {/* Avatar */}
+        {/* Avatar (agent only) */}
         {!isUser && (
           <div
             style={{
-              width: 28,
-              height: 28,
-              borderRadius: "50%",
-              flexShrink: 0,
-              background: isError ? "rgba(239,68,68,0.15)" : "rgba(29,78,216,0.15)",
-              border: `1px solid ${isError ? "rgba(239,68,68,0.3)" : "rgba(29,78,216,0.3)"}`,
+              width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+              background: isError
+                ? "linear-gradient(rgba(239,68,68,0.15), rgba(239,68,68,0.07)) padding-box, linear-gradient(135deg, rgba(239,68,68,0.42), rgba(239,68,68,0.15)) border-box"
+                : "linear-gradient(rgba(29,78,216,0.18), rgba(29,78,216,0.08)) padding-box, linear-gradient(135deg, rgba(96,165,250,0.45), rgba(29,78,216,0.18)) border-box",
+              border: "1px solid transparent",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               alignSelf: "flex-end",
+              boxShadow: isError
+                ? "0 0 8px rgba(239,68,68,0.22)"
+                : "0 0 8px rgba(29,78,216,0.22)",
             }}
           >
             {isError ? (
@@ -630,25 +682,13 @@ function MessageBubble({ message }: { message: Message }) {
         {/* Bubble */}
         <div
           style={{
-            padding: "10px 14px",
-            borderRadius: 18,
-            ...(isUser
-              ? { borderBottomRightRadius: 4, background: "#1d4ed8", color: "#dbeafe" }
-              : isError
-              ? {
-                  borderBottomLeftRadius: 4,
-                  background: "rgba(239,68,68,0.08)",
-                  border: "1px solid rgba(239,68,68,0.25)",
-                  color: "#fca5a5",
-                }
-              : {
-                  borderBottomLeftRadius: 4,
-                  background: "var(--bg-surface)",
-                  border: "1px solid var(--border)",
-                  color: "var(--text-primary)",
-                }),
+            padding: "10px 15px",
+            borderRadius: 19,
+            ...(isUser ? { borderBottomRightRadius: 4 } : { borderBottomLeftRadius: 4 }),
+            ...bubbleStyle,
             fontSize: 14,
-            lineHeight: 1.45,
+            lineHeight: 1.5,
+            color: isUser ? "#dbeafe" : isError ? "#fca5a5" : "var(--text-primary)",
           }}
         >
           {isUser ? (
@@ -667,7 +707,6 @@ function MessageBubble({ message }: { message: Message }) {
           gap: 8,
           marginTop: 4,
           paddingLeft: isUser ? 0 : 36,
-          paddingRight: isUser ? 0 : 0,
           flexDirection: isUser ? "row-reverse" : "row",
         }}
       >
@@ -681,13 +720,9 @@ function MessageBubble({ message }: { message: Message }) {
           <button
             onClick={copy}
             style={{
-              background: "none",
-              border: "none",
-              padding: 0,
-              cursor: "pointer",
-              color: "var(--text-muted)",
-              display: "flex",
-              alignItems: "center",
+              background: "none", border: "none", padding: 0,
+              cursor: "pointer", color: "var(--text-muted)",
+              display: "flex", alignItems: "center",
               WebkitTapHighlightColor: "transparent",
             }}
           >
@@ -725,14 +760,14 @@ function FormattedResponse({ content, isError }: { content: string; isError?: bo
               style={{
                 margin: "8px 0",
                 padding: "10px 12px",
-                borderRadius: 10,
+                borderRadius: 12,
                 fontSize: 12,
                 fontFamily: "ui-monospace, 'SF Mono', monospace",
                 overflowX: "auto",
                 WebkitOverflowScrolling: "touch",
-                background: "rgba(0,0,0,0.4)",
+                background: "rgba(0,0,0,0.45)",
                 color: "#86efac",
-                border: "1px solid var(--border-subtle)",
+                border: "1px solid rgba(255,255,255,0.07)",
                 whiteSpace: "pre",
               }}
             >
@@ -760,7 +795,7 @@ function FormattedResponse({ content, isError }: { content: string; isError?: bo
                         fontSize: 12,
                         padding: "1px 5px",
                         borderRadius: 5,
-                        background: "rgba(0,0,0,0.35)",
+                        background: "rgba(0,0,0,0.38)",
                         color: "#93c5fd",
                       }}
                     >
