@@ -290,3 +290,129 @@ Defined in `app/globals.css`:
 | `.msg-spring-in` | Scale + fade spring (0.28 s) | Glass chat bubbles |
 | `.glass-shimmer` | Light-sweep on `::after` | Focused composer |
 | `.skeleton` | Gradient shimmer | Loading placeholders |
+| `.hero-glow` | Ambient orb pulse (6 s, scale + opacity) | Mobile overview hero background |
+| `.hero-glow-slow` | Secondary orb pulse (8 s, offset phase) | Mobile overview hero background |
+| `.dock-rise` | Spring entrance (0.42 s scale + fade) | Floating quick-action dock |
+
+---
+
+## Native Mobile Overview Layout
+
+On phone viewports (< 768 px, the `md:` Tailwind breakpoint), the overview page (`app/page.tsx`) renders a
+fully bespoke native-style layout instead of the desktop stat grid. The desktop layout remains untouched
+inside a `hidden md:block` wrapper.
+
+### Structure
+
+```
+OverviewPage
+├── <Header>                     (shared, always visible)
+├── <div> flex-1 overflow-y-auto
+│   ├── MOBILE (md:hidden)
+│   │   ├── <Hero section>           – gradient/glow background, time greeting, headline, status chips
+│   │   ├── <Swipeable panels row>   – GlassPanel cards, horizontal snap scroll
+│   │   ├── <Activity feed row>      – ActivityPill tiles, horizontal snap scroll
+│   │   └── <spacer>                 – clears floating dock + bottom nav
+│   └── DESKTOP (hidden md:block)
+│       └── …existing stat grid + lists…
+└── <FloatingDock>               (mobile only, position: fixed above bottom nav)
+```
+
+### Hero section
+
+The hero fills the top of the mobile scroll area with:
+
+- **Time-of-day gradient background** — four radial gradient configurations keyed to `morning`,
+  `afternoon`, `evening`, `night` (computed from `new Date().getHours()`).
+- **Animated ambient orbs** — two absolutely-positioned `div` elements with `.hero-glow` /
+  `.hero-glow-slow` classes that pulse scale + opacity on a 6–8 s loop. Orb color adapts to system
+  health (emerald = healthy, amber = degraded, indigo = no workers).
+- **Time greeting** — small muted uppercase label ("Good morning", "Good afternoon", etc.).
+- **Big headline** — 28 px bold text: "All Systems Go" / "Degraded" / "No Workers".
+- **Status chips** — pill-shaped `StatusChip` components showing active worker count, running jobs,
+  failure count, queued count. Only non-zero chips render.
+
+### Swipeable glass panels
+
+```tsx
+<GlassPanel
+  icon={RiServerLine}
+  title="Workers"
+  value={activeWorkers}
+  sub="of 4 total · 2 busy"
+  accentClass="text-emerald-400"
+  sparkColorClass="bg-emerald-400"
+  onClick={() => router.push("/workers")}
+/>
+```
+
+Each `GlassPanel` card:
+- `width: clamp(160px, 52vw, 220px)` — shows ~1.8 cards at once, hinting at more
+- `scroll-snap-align: start` (`.snap-start`) inside a `.snap-x.snap-mandatory` container
+- Glass surface: `var(--glass-bg-elevated)` + `var(--glass-blur-light)` + `var(--glass-border-bright)`
+- `var(--shadow-md)` for depth
+- `active:scale-[0.97]` + `transition-transform` for tappable feel
+- `<Sparkline>` — 7 deterministic bars generated from the current value, fading from 45 % to 100 %
+  opacity left-to-right
+
+The **hide-scrollbar** utility class is applied to the scroll container so snap-scroll works without a
+visible scrollbar on Android.
+
+### Activity feed
+
+Recent jobs and failures are merged, deduplicated by `id`, sorted by `updated_at` descending, and
+capped at 12 items. Each renders as an `<ActivityPill>`:
+
+- Width: `w-48` (192 px) with `snap-start`
+- Status dot (animated with `.animate-pulse-dot` for live states) + uppercase label
+- Job title (2-line clamp)
+- Worker icon + relative timestamp
+- Taps navigate to `/jobs/:id`
+
+### Floating quick-action dock
+
+```
+[  Chat  ] [  Jobs  ] [ ↺ ]
+```
+
+Positioned with `position: fixed`, `bottom: calc(env(safe-area-inset-bottom) + 68px)`, above the
+bottom nav (which sits at `z-50`). The dock uses `z-40`.
+
+- **Chat** button — blue glass pill, links to `/chat`, fires `haptic("send")`
+- **Jobs** button — green glass pill, links to `/jobs`, fires `haptic("send")`
+- **Refresh** button — circular glass, calls `refresh()`, fires `haptic("reply")`
+- Animates in via `.dock-rise` (spring entrance, 0.42 s, 80 ms delay)
+
+### Extending the mobile layout
+
+To add a new swipeable panel:
+
+```tsx
+<GlassPanel
+  icon={RiYourIcon}
+  title="My Section"
+  value={myValue}
+  sub="descriptive sub-text"
+  accentClass="text-indigo-400"
+  sparkColorClass="bg-indigo-400"
+  onClick={() => router.push("/my-section")}
+/>
+```
+
+To add a new status chip:
+
+```tsx
+{myCondition && (
+  <StatusChip dotClass="bg-indigo-400 animate-pulse-dot" label="3 my-items" />
+)}
+```
+
+To add a new activity item type, ensure it conforms to the `Job` type and add it to the
+`activityItems` array before the `.slice(0, 12)` cap.
+
+### Breakpoints
+
+| Viewport | Layout |
+|---|---|
+| < 768 px (`md:hidden`) | Native mobile: hero + swipeable panels + activity feed + floating dock |
+| ≥ 768 px (`hidden md:block`) | Desktop: 4-column stat grid + list sections (unchanged) |

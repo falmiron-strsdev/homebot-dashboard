@@ -196,3 +196,42 @@ body {
   animation: shimmer 1.5s ease-in-out infinite;
   border-radius: 4px;
 }
+
+/* ── Native mobile overview: hide scrollbars on swipe rows ─────────────────── */
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ── Hero ambient glow orb – primary (slower, more prominent) ──────────────── */
+@keyframes hero-ambient {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50%       { opacity: 1;   transform: scale(1.12); }
+}
+.hero-glow {
+  animation: hero-ambient 6s ease-in-out infinite;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+/* Secondary orb – slightly offset phase */
+@keyframes hero-ambient-slow {
+  0%, 100% { opacity: 0.5; transform: scale(1) translateX(0); }
+  50%       { opacity: 0.85; transform: scale(1.08) translateX(8px); }
+}
+.hero-glow-slow {
+  animation: hero-ambient-slow 8s ease-in-out infinite;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+/* ── Floating dock entrance animation ──────────────────────────────────────── */
+@keyframes dock-rise {
+  from { opacity: 0; transform: translateY(18px) scale(0.94); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+.dock-rise {
+  animation: dock-rise 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation-delay: 0.08s;
+}
