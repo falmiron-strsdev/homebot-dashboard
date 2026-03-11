@@ -17,19 +17,20 @@ import { cn } from "@/lib/utils";
 import { RiSearchLine, RiDeleteBinLine, RiCloseLine, RiAlertLine } from "react-icons/ri";
 
 const STATUS_FILTERS: { label: string; value: string }[] = [
-  { label: "All",       value: "" },
-  { label: "Queued",    value: "queued" },
-  { label: "Running",   value: "running" },
-  { label: "Assigned",  value: "assigned" },
-  { label: "Review",    value: "review" },
-  { label: "Completed", value: "completed" },
-  { label: "Failed",    value: "failed" },
-  { label: "Cancelled", value: "cancelled" },
-  { label: "Escalated", value: "escalated" },  // pseudo-filter
+  { label: "All",        value: "" },
+  { label: "Queued",     value: "queued" },
+  { label: "Running",    value: "running" },
+  { label: "Assigned",   value: "assigned" },
+  { label: "Review",     value: "review" },
+  { label: "QA",         value: "qa_running" },
+  { label: "Completed",  value: "completed" },
+  { label: "Failed",     value: "failed" },
+  { label: "Cancelled",  value: "cancelled" },
+  { label: "Escalated",  value: "escalated" },  // pseudo-filter
 ];
 
 const CANCELLABLE: JobStatus[] = ["queued", "assigned"];
-const PURGEABLE:   JobStatus[] = ["review", "completed", "failed", "cancelled"];
+const PURGEABLE:   JobStatus[] = ["review", "qa_running", "completed", "failed", "cancelled"];
 
 function JobsContent() {
   const router = useRouter();

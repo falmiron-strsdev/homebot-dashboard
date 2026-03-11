@@ -23,12 +23,12 @@ import {
   commitUrl,
 } from "@/lib/utils";
 import type { Job, JobEvent, Run, Worker, JobStatus } from "@/lib/types";
-import { RiCloseLine, RiDeleteBinLine, RiCheckDoubleLine, RiRocketLine, RiAlertLine } from "react-icons/ri";
+import { RiCloseLine, RiDeleteBinLine, RiCheckDoubleLine, RiRocketLine, RiAlertLine, RiShieldCheckLine, RiShieldLine } from "react-icons/ri";
 
 const CANCELLABLE:  JobStatus[] = ["queued", "assigned"];
-const COMPLETABLE:  JobStatus[] = ["review"];
-const DEPLOYABLE:   JobStatus[] = ["review", "completed"];
-const PURGEABLE:    JobStatus[] = ["review", "completed", "failed", "cancelled"];
+const COMPLETABLE:  JobStatus[] = ["review", "qa_running"];
+const DEPLOYABLE:   JobStatus[] = ["review", "qa_running", "completed"];
+const PURGEABLE:    JobStatus[] = ["review", "qa_running", "completed", "failed", "cancelled"];
 
 export default function JobDetailPage({
   params,
@@ -185,6 +185,56 @@ export default function JobDetailPage({
           </div>
         )}
 
+        {/* QA running banner */}
+        {job.status === "qa_running" && (
+          <div
+            className="px-4 py-3 rounded-lg border flex items-center gap-3"
+            style={{ background: "rgba(34,211,238,0.06)", borderColor: "rgba(34,211,238,0.3)" }}
+          >
+            <RiShieldCheckLine className="w-5 h-5 text-cyan-400 shrink-0 animate-pulse" />
+            <div>
+              <div className="text-sm font-semibold text-cyan-400">QA Validation in progress</div>
+              <div className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                The QA worker is running <code className="font-mono">npm install &amp;&amp; npm run build</code>. If the build passes, the PR will be auto-merged.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* QA passed banner */}
+        {job.qa_passed === 1 && job.status !== "qa_running" && (
+          <div
+            className="px-4 py-2.5 rounded-lg border flex items-center gap-2 text-xs"
+            style={{ background: "rgba(52,211,153,0.06)", borderColor: "rgba(52,211,153,0.3)" }}
+          >
+            <RiShieldCheckLine className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span className="text-emerald-400 font-medium">QA Passed</span>
+            <span style={{ color: "var(--text-muted)" }}>— build validated, PR auto-merged</span>
+          </div>
+        )}
+
+        {/* QA failed banner with analysis */}
+        {job.qa_passed === 0 && job.qa_analysis && (
+          <div
+            className="rounded-lg border overflow-hidden"
+            style={{ borderColor: "rgba(239,68,68,0.3)" }}
+          >
+            <div
+              className="px-4 py-2.5 flex items-center gap-2"
+              style={{ background: "rgba(239,68,68,0.08)" }}
+            >
+              <RiShieldLine className="w-4 h-4 text-red-400 shrink-0" />
+              <span className="text-sm font-semibold text-red-400">QA Failed — Claude Analysis</span>
+            </div>
+            <pre
+              className="px-4 py-3 text-[11px] font-mono leading-relaxed overflow-x-auto whitespace-pre-wrap"
+              style={{ color: "#fca5a5", background: "rgba(239,68,68,0.04)" }}
+            >
+              {job.qa_analysis}
+            </pre>
+          </div>
+        )}
+
         {/* Repair job banner (this job is a repair of a parent) */}
         {job.parent_job_id && (
           <div
@@ -327,8 +377,8 @@ export default function JobDetailPage({
 
           {/* Right: deployment + runs + events */}
           <div className="space-y-5">
-            {/* Vercel deployment — shown for completed/review jobs */}
-            {(job.status === "completed" || job.status === "review") && (
+            {/* Vercel deployment — shown for completed/review/qa_running jobs */}
+            {(job.status === "completed" || job.status === "review" || job.status === "qa_running") && (
               <DeploymentCard jobId={job.id} />
             )}
 
@@ -501,12 +551,23 @@ function RunRow({ run, repoUrl }: { run: Run; repoUrl: string }) {
 }
 
 const EVENT_TYPE_COLORS: Record<string, string> = {
-  created: "text-gray-400",
-  assigned: "text-indigo-400",
+  created:       "text-gray-400",
+  assigned:      "text-indigo-400",
   status_change: "text-blue-400",
-  cancelled: "text-gray-500",
-  error: "text-red-400",
-  warning: "text-amber-400",
+  cancelled:     "text-gray-500",
+  error:         "text-red-400",
+  warning:       "text-amber-400",
+  qa_claimed:    "text-cyan-400",
+  qa_started:    "text-cyan-400",
+  qa_install:    "text-cyan-300",
+  qa_build:      "text-cyan-300",
+  qa_passed:     "text-emerald-400",
+  qa_merged:     "text-emerald-400",
+  qa_failed:     "text-red-400",
+  qa_analyzing:  "text-amber-400",
+  qa_skipped:    "text-gray-400",
+  qa_no_build:   "text-gray-400",
+  qa_merge_failed: "text-amber-400",
 };
 
 function EventRow({ event }: { event: JobEvent }) {

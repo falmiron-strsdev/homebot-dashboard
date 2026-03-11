@@ -7,6 +7,7 @@ export type JobStatus =
   | "assigned"
   | "running"
   | "review"
+  | "qa_running"
   | "completed"
   | "failed"
   | "cancelled";
@@ -41,6 +42,8 @@ export interface Job {
   parent_job_id: string | null;
   escalated: number;
   escalation_reason: string | null;
+  qa_passed: number | null;
+  qa_analysis: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -87,6 +90,7 @@ export interface OverviewStats {
     assigned: number;
     running: number;
     review: number;
+    qa_running: number;
     completed: number;
     failed: number;
     cancelled: number;

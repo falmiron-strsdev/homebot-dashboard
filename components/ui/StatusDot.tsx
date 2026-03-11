@@ -37,7 +37,7 @@ interface JobStatusBadgeProps {
 export function JobStatusBadge({ status }: JobStatusBadgeProps) {
   const colorClass = JOB_STATUS_COLORS[status] ?? "text-gray-500 bg-gray-500/10";
   const dotClass = JOB_DOT_COLORS[status] ?? "bg-gray-500";
-  const isAnimated = status === "running";
+  const isAnimated = status === "running" || status === "qa_running";
   return (
     <span
       className={cn(
