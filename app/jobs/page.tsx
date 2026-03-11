@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense } from "react";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
@@ -11,34 +10,48 @@ import { PageLoader } from "@/components/ui/Spinner";
 import { ErrorState, EmptyState } from "@/components/ui/EmptyState";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import Header from "@/components/layout/Header";
-import { relativeTime, repoName, shortId } from "@/lib/utils";
+import { relativeTime, repoName, shortId, cn } from "@/lib/utils";
 import type { Job, JobStatus } from "@/lib/types";
-import { cn } from "@/lib/utils";
 import { RiSearchLine, RiDeleteBinLine, RiCloseLine, RiAlertLine } from "react-icons/ri";
 
 const STATUS_FILTERS: { label: string; value: string }[] = [
-  { label: "All",        value: "" },
-  { label: "Queued",     value: "queued" },
-  { label: "Running",    value: "running" },
-  { label: "Assigned",   value: "assigned" },
-  { label: "Security",   value: "security_running" },
-  { label: "Review",     value: "review" },
-  { label: "QA",         value: "qa_running" },
-  { label: "Completed",  value: "completed" },
-  { label: "Failed",     value: "failed" },
-  { label: "Cancelled",  value: "cancelled" },
-  { label: "Escalated",  value: "escalated" },
+  { label: "All",       value: "" },
+  { label: "Queued",    value: "queued" },
+  { label: "Running",   value: "running" },
+  { label: "Assigned",  value: "assigned" },
+  { label: "Security",  value: "security_running" },
+  { label: "Review",    value: "review" },
+  { label: "QA",        value: "qa_running" },
+  { label: "Completed", value: "completed" },
+  { label: "Failed",    value: "failed" },
+  { label: "Cancelled", value: "cancelled" },
+  { label: "Escalated", value: "escalated" },
+];
+
+const STAT_KEYS: { label: string; value: string; color: string }[] = [
+  { label: "Queued",    value: "queued",    color: "text-amber-400" },
+  { label: "Running",   value: "running",   color: "text-blue-400" },
+  { label: "Review",    value: "review",    color: "text-purple-400" },
+  { label: "Failed",    value: "failed",    color: "text-red-400" },
+  { label: "Completed", value: "completed", color: "text-emerald-400" },
 ];
 
 const CANCELLABLE: JobStatus[] = ["queued", "assigned"];
-const PURGEABLE:   JobStatus[] = ["review", "security_pending", "security_running", "qa_running", "completed", "failed", "cancelled"];
+const PURGEABLE: JobStatus[]   = [
+  "review",
+  "security_pending",
+  "security_running",
+  "qa_running",
+  "completed",
+  "failed",
+  "cancelled",
+];
 
 function JobsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
-  const initialStatus = searchParams.get("status") ?? "";
-  const [statusFilter, setStatusFilter] = useState(initialStatus);
+  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") ?? "");
 
   const { data: allJobs, error, isLoading, isRefreshing, lastUpdated, refresh } =
     useAutoRefresh({ fetcher: fetchJobs, intervalMs: 20_000 });
@@ -66,10 +79,16 @@ function JobsContent() {
     );
   }, [allJobs, statusFilter, search]);
 
-  // Count purgeable jobs for the bulk action
   const purgeableCount = allJobs
     ? allJobs.filter((j) => PURGEABLE.includes(j.status as JobStatus)).length
     : 0;
+
+  function countFor(val: string) {
+    if (!allJobs) return 0;
+    if (val === "escalated") return allJobs.filter((j) => j.escalated === 1).length;
+    if (!val) return allJobs.length;
+    return allJobs.filter((j) => j.status === val).length;
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -96,36 +115,85 @@ function JobsContent() {
         }
       />
 
-      {/* Filters bar */}
+      {/* ── Stats strip ── */}
+      {allJobs && (
+        <div
+          className="flex gap-2 px-4 md:px-6 py-3 overflow-x-auto hide-scrollbar border-b shrink-0"
+          style={{ borderColor: "var(--border)" }}
+        >
+          {STAT_KEYS.map((s) => {
+            const isActive = statusFilter === s.value;
+            return (
+              <button
+                key={s.value}
+                onClick={() => setStatusFilter(isActive ? "" : s.value)}
+                className="shrink-0 px-3 pt-2 pb-2.5 rounded-xl text-center min-w-[72px] transition-all"
+                style={{
+                  background: isActive
+                    ? "linear-gradient(rgba(29,78,216,0.14), rgba(29,78,216,0.08)) padding-box," +
+                      "linear-gradient(135deg, rgba(96,165,250,0.35), rgba(29,78,216,0.18)) border-box"
+                    : "var(--glass-bg)",
+                  backdropFilter: "var(--glass-blur-light)",
+                  WebkitBackdropFilter: "var(--glass-blur-light)",
+                  border: `1px solid ${isActive ? "transparent" : "var(--glass-border-bright)"}`,
+                  boxShadow: isActive ? "0 0 10px var(--glow-blue)" : "none",
+                }}
+              >
+                <div className={cn("text-2xl font-semibold tabular-nums leading-none", s.color)}>
+                  {countFor(s.value)}
+                </div>
+                <div
+                  className="text-[10px] uppercase tracking-wide mt-1"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  {s.label}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Filter chips + search ── */}
       <div
-        className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 px-4 sm:px-6 py-3 border-b"
+        className="px-4 md:px-6 py-3 border-b shrink-0"
         style={{ borderColor: "var(--border)", background: "var(--bg-surface)" }}
       >
-        <div className="flex gap-1 flex-wrap">
-          {STATUS_FILTERS.map((f) => (
-            <button
-              key={f.value}
-              onClick={() => setStatusFilter(f.value)}
-              className={cn(
-                "px-2.5 py-1 rounded-lg text-xs font-medium uppercase tracking-wide border transition-colors",
-                statusFilter === f.value
-                  ? "border-blue-500/60 bg-blue-500/15 text-blue-300"
-                  : "border-transparent text-gray-500 hover:text-gray-300 hover:bg-[var(--bg-elevated)]"
-              )}
-            >
-              {f.label}
-              {allJobs && f.value && (
-                <span className="ml-1 opacity-60">
-                  {f.value === "escalated"
-                    ? allJobs.filter((j) => j.escalated === 1).length
-                    : allJobs.filter((j) => j.status === f.value).length}
-                </span>
-              )}
-            </button>
-          ))}
+        <div className="flex gap-2 overflow-x-auto hide-scrollbar mb-2.5">
+          {STATUS_FILTERS.map((f) => {
+            const isActive = statusFilter === f.value;
+            return (
+              <button
+                key={f.value}
+                onClick={() => setStatusFilter(f.value)}
+                className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-all min-h-[36px]"
+                style={
+                  isActive
+                    ? {
+                        background:
+                          "linear-gradient(rgba(29,78,216,0.18), rgba(29,78,216,0.10)) padding-box," +
+                          "linear-gradient(135deg, rgba(96,165,250,0.40), rgba(29,78,216,0.20)) border-box",
+                        border: "1px solid transparent",
+                        color: "#93c5fd",
+                        boxShadow: "0 0 10px var(--glow-blue)",
+                      }
+                    : {
+                        background: "var(--bg-elevated)",
+                        border: "1px solid var(--border)",
+                        color: "var(--text-muted)",
+                      }
+                }
+              >
+                {f.label}
+                {allJobs && f.value && (
+                  <span className="opacity-60 text-[10px]">{countFor(f.value)}</span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
-        <div className="relative w-full sm:w-auto sm:ml-auto">
+        <div className="relative">
           <RiSearchLine
             className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none"
             style={{ color: "var(--text-muted)" }}
@@ -135,7 +203,7 @@ function JobsContent() {
             placeholder="Search jobs…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-8 pr-3 py-1.5 rounded-lg border text-sm w-full sm:w-56 focus:outline-none focus:border-blue-500/60"
+            className="pl-8 pr-3 py-2 rounded-xl border text-sm w-full focus:outline-none focus:border-blue-500/60"
             style={{
               background: "var(--bg-elevated)",
               borderColor: "var(--border)",
@@ -145,8 +213,8 @@ function JobsContent() {
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto">
+      {/* ── Content ── */}
+      <div className="flex-1 overflow-y-auto pb-24 md:pb-0">
         {isLoading ? (
           <PageLoader />
         ) : error ? (
@@ -162,7 +230,7 @@ function JobsContent() {
           />
         ) : (
           <>
-            {/* Desktop table — hidden on small screens */}
+            {/* Desktop table */}
             <div className="hidden sm:block">
               <table className="w-full text-sm">
                 <thead>
@@ -193,15 +261,13 @@ function JobsContent() {
               </table>
             </div>
 
-            {/* Mobile cards — shown only on small screens */}
-            <div
-              className="block sm:hidden divide-y"
-              style={{ borderColor: "var(--border-subtle)" }}
-            >
-              {filtered.map((job) => (
+            {/* Mobile glass cards */}
+            <div className="block sm:hidden space-y-2 p-3">
+              {filtered.map((job, idx) => (
                 <JobCard
                   key={job.id}
                   job={job}
+                  index={idx}
                   onNavigate={() => router.push(`/jobs/${job.id}`)}
                   onMutate={refresh}
                 />
@@ -335,15 +401,16 @@ function JobRow({
   );
 }
 
-/** Mobile card view for a single job. */
 function JobCard({
   job,
   onNavigate,
   onMutate,
+  index,
 }: {
   job: Job;
   onNavigate: () => void;
   onMutate: () => void;
+  index: number;
 }) {
   const status = job.status as JobStatus;
   const canCancel = CANCELLABLE.includes(status);
@@ -351,11 +418,19 @@ function JobCard({
 
   return (
     <div
-      className="px-4 py-4"
-      style={{ background: "var(--bg-surface)" }}
+      className="rounded-2xl p-4 card-enter cursor-pointer active:scale-[0.99] transition-transform"
+      style={{
+        animationDelay: `${index * 30}ms`,
+        background:
+          "linear-gradient(var(--bg-surface), var(--bg-surface)) padding-box," +
+          "linear-gradient(135deg, var(--glass-border-bright), var(--border)) border-box",
+        border: "1px solid transparent",
+        boxShadow: "var(--shadow-sm)",
+      }}
+      onClick={onNavigate}
     >
-      {/* Top row: status + time */}
-      <div className="flex items-center justify-between mb-2">
+      {/* Status + time */}
+      <div className="flex items-center justify-between mb-2.5">
         <div className="flex items-center gap-2 flex-wrap">
           <JobStatusBadge status={status} />
           {job.escalated === 1 && (
@@ -370,27 +445,29 @@ function JobCard({
             </span>
           )}
         </div>
-        <span className="text-xs shrink-0" style={{ color: "var(--text-muted)" }}>
+        <span className="text-xs shrink-0 ml-2" style={{ color: "var(--text-muted)" }}>
           {relativeTime(job.updated_at)}
         </span>
       </div>
 
       {/* Title */}
       <div
-        className="text-sm font-medium leading-snug mb-1 cursor-pointer hover:text-blue-300 transition-colors"
+        className="text-[15px] font-semibold leading-snug mb-2"
         style={{ color: "var(--text-primary)" }}
-        onClick={onNavigate}
       >
         {job.title}
       </div>
 
-      {/* Repo + branch */}
-      <div className="flex items-center gap-2 flex-wrap mb-3">
+      {/* Repo + branch + priority */}
+      <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
           {repoName(job.repo_url)}
         </span>
         {job.work_branch && (
-          <span className="text-xs font-mono truncate max-w-[180px]" style={{ color: "var(--text-muted)" }}>
+          <span
+            className="text-xs font-mono truncate max-w-[180px]"
+            style={{ color: "var(--text-muted)" }}
+          >
             {job.work_branch}
           </span>
         )}
@@ -410,7 +487,10 @@ function JobCard({
 
       {/* Actions */}
       {(canCancel || canPurge) && (
-        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="flex items-center gap-2 mt-3"
+          onClick={(e) => e.stopPropagation()}
+        >
           {canCancel && (
             <ConfirmButton
               label="Cancel"
@@ -453,9 +533,7 @@ function Th({ children }: { children: React.ReactNode }) {
 
 function Td({ children }: { children: React.ReactNode }) {
   return (
-    <td className="px-4 py-3 align-middle first:pl-6 last:pr-6">
-      {children}
-    </td>
+    <td className="px-4 py-3 align-middle first:pl-6 last:pr-6">{children}</td>
   );
 }
 

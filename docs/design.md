@@ -416,3 +416,141 @@ To add a new activity item type, ensure it conforms to the `Job` type and add it
 |---|---|
 | < 768 px (`md:hidden`) | Native mobile: hero + swipeable panels + activity feed + floating dock |
 | ≥ 768 px (`hidden md:block`) | Desktop: 4-column stat grid + list sections (unchanged) |
+
+---
+
+## Workers Page (`/workers`)
+
+### Stats strip
+
+A scrollable row of glass stat cards sits below the header and above the health banner. Each card shows a count and a label:
+
+| Card | Accent colour | Notes |
+|---|---|---|
+| Active | `text-emerald-400` | busy + idle combined |
+| Busy | `text-blue-400` | animated pulse dot in filter chip |
+| Idle | `text-emerald-400` | |
+| Stale | `text-amber-400` | |
+| Offline | `text-gray-500` | |
+
+### Health banner
+
+Shown only when `stale + offline > 0`. Red tinted bar listing counts. Sits between the stats strip and the filter chips.
+
+### Filter chips
+
+Rounded-pill buttons (`min-h-[36px]`, ≥ 44px effective tap area) for All / Busy / Idle / Stale / Offline. Active state uses the same blue glass gradient as other interactive chips across the app. Horizontal scrollable on mobile (`overflow-x-auto hide-scrollbar`).
+
+### Worker cards
+
+Each worker renders as a `rounded-2xl` glass card with:
+- Coloured icon (`RiComputerLine` / `RiCpuLine` / `RiPrinterLine`) tinted by status accent colour
+- `WorkerStatusBadge` inline with name and hostname
+- Capability chips as uppercase monospace pills
+- Right-aligned metadata: short ID, "seen X ago", "since X ago"
+- Red gradient border + unhealthy warning row for stale/offline workers
+- `card-enter` entrance animation staggered by `index * 35ms`
+
+---
+
+## Jobs Page (`/jobs`)
+
+### Stats strip
+
+Five clickable glass tiles — Queued, Running, Review, Failed, Completed — with respective accent colours. Tapping a tile toggles that status filter (same as clicking the matching filter chip). Active tile gets the blue glass ring.
+
+### Filter chips
+
+Horizontal scrollable pill strip with the same style as Workers. Each chip shows a count badge. The search input sits below the chip row on both mobile and desktop (no horizontal layout shift).
+
+### Mobile cards
+
+On `< sm` (`< 640 px`) viewports the desktop table is hidden and jobs render as `rounded-2xl` glass cards:
+- Tap target covers the full card (`cursor-pointer active:scale-[0.99]`)
+- Title at `text-[15px] font-semibold` (matches `--text-title2`)
+- Status badge + escalated/repair tags + relative time in header row
+- Repo, branch, priority in a flex-wrap row below
+- Cancel/Delete action buttons at bottom (stop-propagation so card tap doesn't fire)
+- Staggered `card-enter` animation
+
+---
+
+## Activity Page (`/activity`)
+
+The activity feed renders as a vertical timeline. A `1px` gradient line runs from top to bottom on `sm+` screens (hidden on mobile to avoid clutter).
+
+### Timeline items
+
+Each item has two parts:
+
+**Icon column (left, `z-10`):**
+- `w-10 h-10 rounded-xl` icon container, coloured by job status
+- Icon component chosen from `STATUS_ICON` map (see table below)
+- Running jobs spin via `animate-spin`
+
+**Card (right):**
+- Glass card (`rounded-2xl`, gradient border, `--shadow-sm`)
+- Header: job title (link to `/jobs/:id`) + status pill + repo name + short ID
+- Timestamp on the right — `text-sm` on mobile, `text-xs` on desktop for large-screen density
+- Branch + commit row with `RiGitBranchLine` / `RiGitCommitLine` icons, clickable to GitHub
+- Duration + exit code
+- Latest event message or run summary (2-line clamp)
+- `card-enter` staggered by `index * 30ms`
+
+**Status → icon map:**
+
+| Status | Icon | Accent |
+|---|---|---|
+| completed | `RiCheckboxCircleLine` | emerald |
+| failed / cancelled | `RiAlertLine` | red / gray |
+| running | `RiLoaderLine` (spin) | blue |
+| queued / assigned | `RiTimerLine` | amber / sky |
+| review | `RiEyeLine` | purple |
+| qa_running | `RiCodeLine` | indigo |
+| security_running/pending | `RiShieldLine` | amber |
+
+---
+
+## Chat Page (`/chat`)
+
+### Header chrome
+
+- Title `"OpenClaw"` uses `text-[17px] font-semibold` (matches `--text-title2` = 17px/600)
+- Session subtitle uses `text-[11px]`
+- Agent icon: `w-8 h-8 md:w-9 md:h-9 rounded-xl` blue glass button (unchanged)
+- Availability indicator and "New chat" button stay in right cluster
+
+### Session rail
+
+- Rail header "History" at `text-[13px] font-semibold`
+- Session item titles at `text-xs font-medium` (up from 11px)
+- Preview text at `text-[11px]` (up from 10px)
+- Metadata row (time + message count badge) at `text-[10px]`
+
+### Composer
+
+- `textarea` uses `text-sm` (14px) for comfortable input
+- Message bubbles use `text-sm leading-relaxed` (14px)
+- Thinking bubble text at `text-sm` (14px)
+- Gradient border + `glass-shimmer` on focus remain unchanged
+
+---
+
+## Viewport / meta settings
+
+All pages share the root layout (`app/layout.tsx`) which exports:
+
+```ts
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",   // notch/home-indicator awareness
+};
+```
+
+Safe-area insets are handled by:
+- `env(safe-area-inset-bottom, 0px)` in `.bottom-nav-safe` (bottom nav)
+- Inline `pb-24 md:pb-6` on scrollable content areas (clears floating nav)
+- Chat page uses `h-screen overflow-hidden` so the iOS keyboard push is handled by the fixed composer
+
+No `maximum-scale` or `user-scalable=no` is set; accessibility pinch-zoom is intentionally preserved.

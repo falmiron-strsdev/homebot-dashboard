@@ -373,8 +373,8 @@ export default function ChatPage() {
           className="flex items-center justify-between px-4 py-3 shrink-0"
           style={{ borderBottom: "1px solid var(--glass-border)" }}
         >
-          <span className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
-            Chat History
+          <span className="text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>
+            History
           </span>
           <div className="flex items-center gap-2">
             <button
@@ -469,7 +469,7 @@ export default function ChatPage() {
                   <>
                     <div className="flex items-start justify-between gap-1">
                       <p
-                        className="text-[11px] font-medium leading-snug truncate flex-1"
+                        className="text-xs font-medium leading-snug truncate flex-1"
                         style={{ color: isActive ? "#93c5fd" : "var(--text-primary)" }}
                       >
                         {s.title}
@@ -498,18 +498,18 @@ export default function ChatPage() {
                       </div>
                     </div>
                     <p
-                      className="text-[10px] mt-0.5 truncate opacity-60"
+                      className="text-[11px] mt-0.5 truncate opacity-60"
                       style={{ color: "var(--text-muted)" }}
                     >
                       {s.last_message_preview ?? "No messages yet"}
                     </p>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[9px]" style={{ color: "var(--text-muted)" }}>
+                      <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
                         {relTime(s.updated_at)}
                       </span>
                       {s.message_count > 0 && (
                         <span
-                          className="text-[9px] px-1 rounded"
+                          className="text-[10px] px-1.5 py-0.5 rounded-md"
                           style={{
                             background: "var(--bg-elevated)",
                             color: "var(--text-muted)",
@@ -570,10 +570,10 @@ export default function ChatPage() {
             </div>
 
             <div>
-              <h1 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+              <h1 className="text-[17px] font-semibold leading-tight tracking-tight" style={{ color: "var(--text-primary)" }}>
                 OpenClaw
               </h1>
-              <p className="text-[10px] mt-0.5 hidden md:block" style={{ color: "var(--text-muted)" }}>
+              <p className="text-[11px] mt-0.5 hidden md:block" style={{ color: "var(--text-muted)" }}>
                 Natural language orchestrator · session{" "}
                 <span className="font-mono">{sessionId.replace("dashboard-", "")}</span>
               </p>
@@ -704,7 +704,7 @@ export default function ChatPage() {
               placeholder="Ask OpenClaw anything… (Enter to send, Shift+Enter for newline)"
               disabled={loading || orchAvailable === false}
               rows={1}
-              className="flex-1 bg-transparent text-xs resize-none focus:outline-none leading-relaxed min-h-[22px]"
+              className="flex-1 bg-transparent text-sm resize-none focus:outline-none leading-relaxed min-h-[22px]"
               style={{ color: "var(--text-primary)" }}
             />
             <button
@@ -765,10 +765,10 @@ function WelcomeScreen({
         <RiRobotLine className="w-7 h-7 text-blue-400" />
       </div>
 
-      <h2 className="text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
+      <h2 className="text-[17px] font-semibold mb-1.5 tracking-tight" style={{ color: "var(--text-primary)" }}>
         OpenClaw Agent
       </h2>
-      <p className="text-xs max-w-xs mb-6 leading-relaxed" style={{ color: "var(--text-muted)" }}>
+      <p className="text-sm max-w-xs mb-6 leading-relaxed" style={{ color: "var(--text-muted)" }}>
         Ask in plain English. Queue jobs, check workers, inspect runs, create GitHub repos —
         OpenClaw handles it.
       </p>
@@ -818,7 +818,7 @@ function ThinkingBubble() {
     <div className="flex items-start gap-2.5 msg-spring-in">
       <AgentAvatar />
       <div
-        className="px-4 py-3 rounded-2xl rounded-tl-sm text-xs max-w-[85%]"
+        className="px-4 py-3 rounded-2xl rounded-tl-sm text-sm max-w-[85%]"
         style={glassBubbleAssistant}
       >
         <div className="flex items-center gap-2" style={{ color: "var(--text-muted)" }}>
@@ -855,7 +855,7 @@ function MessageBubble({ message }: { message: Message }) {
       <div className={cn("flex flex-col gap-1 max-w-[85%] min-w-0", isUser && "items-end")}>
         <div
           className={cn(
-            "px-4 py-3 rounded-2xl text-xs leading-relaxed",
+            "px-4 py-3 rounded-2xl text-sm leading-relaxed",
             isUser ? "rounded-tr-sm" : "rounded-tl-sm"
           )}
           style={{
