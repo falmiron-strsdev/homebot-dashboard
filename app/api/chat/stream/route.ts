@@ -1,11 +1,19 @@
 import { NextRequest } from "next/server";
-import { streamChatCompletion, GatewayMessage } from "@/lib/gateway-client";
+import { orchFetch } from "@/lib/orch-client";
 import {
   appendMessage,
   ensureSession,
   dbStatus,
   getSessionMessages,
 } from "@/lib/chat-session-store";
+
+interface OrchChatResponse {
+  reply: string;
+  session_id: string;
+  duration_ms: number;
+  model?: string;
+  usage?: { input: number; output: number; total: number; cacheRead?: number };
+}
 
 function msgId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -58,28 +66,10 @@ export async function POST(req: NextRequest) {
     // DB unavailable — proceed without persistence
   }
 
-  // ── 3. Build message history for context window ────────────────────────────
-  // Fetch the last 40 stored messages (20 turns) so the Gateway has context.
-  const gatewayMessages: GatewayMessage[] = [];
-  try {
-    const history = getSessionMessages(sessionId);
-    // Include up to the most-recent 40 messages (excluding the one we just stored)
-    const contextMessages = history
-      .filter((m) => m.role !== "error" && m.id !== userMsgId)
-      .slice(-40);
-    for (const m of contextMessages) {
-      gatewayMessages.push({
-        role: m.role === "user" ? "user" : "assistant",
-        content: m.content,
-      });
-    }
-  } catch {
-    // DB unavailable — send without history
-  }
-  // Always append the current user turn
-  gatewayMessages.push({ role: "user", content: userMessage });
+  // ── 3. Unused history reference kept for potential future use ─────────────
+  try { getSessionMessages(sessionId); } catch { /* DB unavailable */ }
 
-  // ── 4. Create ReadableStream that proxies Gateway SSE ─────────────────────
+  // ── 4. Call orchestrator /chat (blocking) then simulate SSE word-by-word ──
   const startMs = Date.now();
 
   const stream = new ReadableStream({
@@ -91,82 +81,34 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        const gatewayRes = await streamChatCompletion(gatewayMessages);
-        const reader = gatewayRes.body!.getReader();
-        const decoder = new TextDecoder();
+        const data = await orchFetch<OrchChatResponse>("/chat", {
+          method: "POST",
+          body: JSON.stringify({ message: userMessage, session_id: sessionId }),
+        });
 
-        let sseBuffer = "";
-        let fullText = "";
-        let model: string | undefined;
-        let usage:
-          | { input: number; output: number; total: number; cacheRead?: number }
-          | undefined;
+        const fullText = data.reply ?? "";
+        const duration_ms = Date.now() - startMs;
+
+        // Emit word-by-word to give a streaming feel
+        const words = fullText.split(/(\s+)/);
         let firstToken = true;
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          sseBuffer += decoder.decode(value, { stream: true });
-          const lines = sseBuffer.split("\n");
-          sseBuffer = lines.pop() ?? "";
-
-          for (const line of lines) {
-            if (!line.startsWith("data: ")) continue;
-            const raw = line.slice(6).trim();
-            if (raw === "[DONE]") continue;
-
-            let chunk: {
-              choices?: Array<{
-                delta?: { content?: string };
-                finish_reason?: string | null;
-              }>;
-              model?: string;
-              usage?: {
-                prompt_tokens?: number;
-                completion_tokens?: number;
-                total_tokens?: number;
-                prompt_tokens_details?: { cached_tokens?: number };
-              };
-            };
-            try {
-              chunk = JSON.parse(raw);
-            } catch {
-              continue;
-            }
-
-            if (chunk.model) model = chunk.model;
-
-            if (chunk.usage) {
-              usage = {
-                input: chunk.usage.prompt_tokens ?? 0,
-                output: chunk.usage.completion_tokens ?? 0,
-                total: chunk.usage.total_tokens ?? 0,
-                cacheRead:
-                  chunk.usage.prompt_tokens_details?.cached_tokens ?? undefined,
-              };
-            }
-
-            const delta = chunk.choices?.[0]?.delta?.content;
-            if (delta) {
-              fullText += delta;
-              send({ type: "chunk", text: delta, firstToken });
-              firstToken = false;
-            }
+        for (const word of words) {
+          if (word) {
+            send({ type: "chunk", text: word, firstToken });
+            firstToken = false;
+            await new Promise((r) => setTimeout(r, 12));
           }
         }
 
-        const duration_ms = Date.now() - startMs;
-
-        // ── 5. Persist assistant reply (best-effort) ─────────────────────────
+        // ── 5. Persist assistant reply (best-effort) ───────────────────────
         try {
           appendMessage(sessionId, {
             id: msgId(),
             role: "assistant",
             content: fullText,
-            model,
+            model: data.model,
             duration_ms,
-            usage,
+            usage: data.usage,
           });
         } catch {
           // DB unavailable
@@ -177,13 +119,12 @@ export async function POST(req: NextRequest) {
           type: "done",
           session_id: sessionId,
           duration_ms,
-          model,
-          usage,
+          model: data.model,
+          usage: data.usage,
           ...(ok ? {} : { db_warning: dbErr }),
         });
       } catch (err) {
         const errMsg = String(err);
-        // Persist error (best-effort)
         try {
           appendMessage(sessionId, { id: msgId(), role: "error", content: errMsg });
         } catch {
