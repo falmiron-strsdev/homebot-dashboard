@@ -40,3 +40,15 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env.local
+
+# worker: auto-added safety exclusions
+# --- Added by worker safety patch ---
+node_modules/
+dist/
+build/
+.env*.local
+*.node
+__pycache__/
+*.pyc
+.venv/
+venv/

@@ -1,6 +1,7 @@
 "use client";
 
 import { RiRefreshLine } from "react-icons/ri";
+import NotificationBell from "@/components/layout/NotificationBell";
 
 interface HeaderProps {
   title: string;
@@ -60,6 +61,7 @@ export default function Header({
           </button>
         )}
         {actions}
+        <NotificationBell />
       </div>
     </div>
   );
