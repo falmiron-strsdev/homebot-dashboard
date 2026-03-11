@@ -7,7 +7,7 @@ import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { PageLoader } from "@/components/ui/Spinner";
 import { ErrorState, EmptyState } from "@/components/ui/EmptyState";
 import Header from "@/components/layout/Header";
-import { relativeTime, parseCapabilities, shortId } from "@/lib/utils";
+import { relativeTime, shortId } from "@/lib/utils";
 import type { Worker, WorkerStatus } from "@/lib/types";
 import { RiComputerLine, RiPrinterLine, RiCpuLine, RiAlertLine, RiDeleteBinLine, RiRefreshLine } from "react-icons/ri";
 
@@ -83,8 +83,19 @@ export default function WorkersPage() {
   );
 }
 
+function parseCaps(raw: string | string[]): string[] {
+  if (Array.isArray(raw)) return raw;
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {
+    // not JSON — try comma-separated
+  }
+  return raw.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
 function WorkerRow({ worker, onRemove }: { worker: Worker; onRemove: () => void }) {
-  const caps = parseCapabilities(worker.capabilities);
+  const caps = parseCaps(worker.capabilities);
   const isUnhealthy =
     worker.computed_status === "offline" || worker.computed_status === "stale";
 
