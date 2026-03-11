@@ -12,6 +12,11 @@ import {
   RiAlertLine,
   RiFileCopyLine,
   RiCheckLine,
+  RiHistoryLine,
+  RiCloseLine,
+  RiEditLine,
+  RiDeleteBinLine,
+  RiCheckFill,
 } from "react-icons/ri";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -26,6 +31,15 @@ interface Message {
   duration_ms?: number;
   model?: string;
   usage?: { input: number; output: number; total: number; cacheRead?: number };
+}
+
+interface SessionMeta {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  last_message_preview: string | null;
+  message_count: number;
 }
 
 const QUICK_PROMPTS = [
@@ -47,7 +61,15 @@ function uid() {
   return Math.random().toString(36).slice(2);
 }
 
-// ── Gradient border helper (padding-box / border-box technique) ────────────
+function relTime(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 60_000) return "just now";
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+  return `${Math.floor(diff / 86_400_000)}d ago`;
+}
+
+// ── Glass style helpers ────────────────────────────────────────────────────
 
 const glassBubbleAssistant: React.CSSProperties = {
   background:
@@ -77,6 +99,13 @@ const glassBubbleError: React.CSSProperties = {
   boxShadow: "0 0 16px var(--glow-error)",
 };
 
+const glassRail: React.CSSProperties = {
+  background: "var(--glass-bg-heavy)",
+  backdropFilter: "var(--glass-blur)",
+  WebkitBackdropFilter: "var(--glass-blur)" as React.CSSProperties["backdropFilter"],
+  borderRight: "1px solid var(--glass-border)",
+};
+
 // ── Main component ──────────────────────────────────────────────────────────
 
 export default function ChatPage() {
@@ -86,8 +115,16 @@ export default function ChatPage() {
   const [sessionId, setSessionId] = useState("");
   const [orchAvailable, setOrchAvailable] = useState<boolean | null>(null);
   const [composerFocused, setComposerFocused] = useState(false);
+  const [sessions, setSessions] = useState<SessionMeta[]>([]);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [dbWarning, setDbWarning] = useState<string | null>(null);
+  const [loadingSession, setLoadingSession] = useState(false);
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
   const { fire: haptic } = useHaptics();
 
   // Initialize session ID on client only to avoid SSR hydration mismatch
@@ -103,6 +140,26 @@ export default function ChatPage() {
       .catch(() => setOrchAvailable(false));
   }, []);
 
+  // Load session list
+  const loadSessions = useCallback(async () => {
+    try {
+      const res = await fetch("/api/sessions");
+      if (res.ok) {
+        const data = await res.json();
+        setSessions(data.sessions ?? []);
+      } else if (res.status === 503) {
+        const data = await res.json();
+        setDbWarning(data.detail ?? "Chat history unavailable");
+      }
+    } catch {
+      // ignore — history drawer will just be empty
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSessions();
+  }, [loadSessions]);
+
   // Scroll to bottom on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -115,6 +172,11 @@ export default function ChatPage() {
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }, [input]);
+
+  // Focus edit input when entering edit mode
+  useEffect(() => {
+    if (editingId) editInputRef.current?.focus();
+  }, [editingId]);
 
   const send = useCallback(
     async (text: string) => {
@@ -135,6 +197,10 @@ export default function ChatPage() {
         });
 
         const data = await res.json();
+
+        if (data.db_warning && !dbWarning) {
+          setDbWarning(data.db_warning);
+        }
 
         if (!res.ok) {
           haptic("error");
@@ -161,6 +227,8 @@ export default function ChatPage() {
               usage: data.usage,
             },
           ]);
+          // Refresh history list after each successful reply
+          loadSessions();
         }
       } catch (err) {
         haptic("error");
@@ -178,7 +246,7 @@ export default function ChatPage() {
         inputRef.current?.focus();
       }
     },
-    [loading, sessionId, haptic]
+    [loading, sessionId, haptic, dbWarning, loadSessions]
   );
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -192,7 +260,76 @@ export default function ChatPage() {
     setMessages([]);
     setSessionId(newSessionId());
     setInput("");
+    setDrawerOpen(false);
     inputRef.current?.focus();
+  }
+
+  async function resumeSession(s: SessionMeta) {
+    if (s.id === sessionId) {
+      setDrawerOpen(false);
+      return;
+    }
+    setLoadingSession(true);
+    setDrawerOpen(false);
+    try {
+      const res = await fetch(`/api/sessions/${s.id}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const hydrated: Message[] = (data.messages ?? []).map(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (m: any) => ({
+          id: m.id,
+          role: m.role as Role,
+          content: m.content,
+          ts: new Date(m.created_at),
+          duration_ms: m.duration_ms ?? undefined,
+          model: m.model ?? undefined,
+          usage:
+            m.usage_input != null
+              ? {
+                  input: m.usage_input,
+                  output: m.usage_output,
+                  total: m.usage_total,
+                  cacheRead: m.usage_cache_read ?? undefined,
+                }
+              : undefined,
+        })
+      );
+      setMessages(hydrated);
+      setSessionId(s.id);
+    } catch {
+      // ignore
+    } finally {
+      setLoadingSession(false);
+    }
+  }
+
+  function startRename(s: SessionMeta) {
+    setEditingId(s.id);
+    setEditTitle(s.title);
+  }
+
+  async function commitRename(id: string) {
+    const title = editTitle.trim();
+    if (!title) {
+      setEditingId(null);
+      return;
+    }
+    await fetch(`/api/sessions/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    });
+    setEditingId(null);
+    loadSessions();
+  }
+
+  async function deleteSessionById(id: string) {
+    await fetch(`/api/sessions/${id}`, { method: "DELETE" });
+    if (id === sessionId) {
+      newChat();
+    }
+    loadSessions();
   }
 
   // Gradient border for the composer
@@ -213,172 +350,391 @@ export default function ChatPage() {
       };
 
   return (
-    <div className="flex flex-col h-screen">
-      {/* ── Header ── */}
-      <div
-        className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 shrink-0 sticky top-0 z-10"
-        style={{
-          background: "var(--glass-bg-heavy)",
-          backdropFilter: "var(--glass-blur)",
-          WebkitBackdropFilter: "var(--glass-blur)" as React.CSSProperties["backdropFilter"],
-          borderBottom: "1px solid var(--glass-border)",
-          boxShadow: "0 1px 0 var(--glass-border-bright), 0 4px 24px rgba(0,0,0,0.35)",
-        }}
-      >
-        <div className="flex items-center gap-3">
-          {/* Agent icon */}
-          <div
-            className="w-8 h-8 md:w-9 md:h-9 rounded-xl flex items-center justify-center shrink-0"
-            style={{
-              background:
-                "linear-gradient(rgba(29,78,216,0.18), rgba(29,78,216,0.10)) padding-box," +
-                "linear-gradient(135deg, rgba(96,165,250,0.40), rgba(29,78,216,0.20)) border-box",
-              border: "1px solid transparent",
-              boxShadow: "0 0 14px var(--glow-blue)",
-            }}
-          >
-            <RiRobotLine className="w-4 h-4 text-blue-400" />
-          </div>
-
-          <div>
-            <h1 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-              OpenClaw
-            </h1>
-            <p className="text-[10px] mt-0.5 hidden md:block" style={{ color: "var(--text-muted)" }}>
-              Natural language orchestrator · session{" "}
-              <span className="font-mono">{sessionId.replace("dashboard-", "")}</span>
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 md:gap-3">
-          {orchAvailable === false && (
-            <div className="flex items-center gap-1.5 text-amber-400 text-xs">
-              <RiAlertLine className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">OpenClaw unavailable</span>
-            </div>
-          )}
-          {orchAvailable === true && (
-            <div className="flex items-center gap-1.5 text-emerald-400 text-xs">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse-dot" />
-              <span className="hidden sm:inline">Ready</span>
-            </div>
-          )}
-          <button
-            onClick={newChat}
-            className="flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-            style={{
-              background:
-                "linear-gradient(var(--glass-bg-elevated), var(--glass-bg-elevated)) padding-box," +
-                "linear-gradient(135deg, var(--glass-border-bright), var(--glass-border)) border-box",
-              border: "1px solid transparent",
-              color: "var(--text-secondary)",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
-            }}
-          >
-            <RiAddLine className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">New chat</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ── Messages area ── */}
-      <div className="flex-1 overflow-y-auto px-3 md:px-6 py-4 space-y-3">
-        {messages.length === 0 && !loading && (
-          <WelcomeScreen onPrompt={(p) => send(p)} available={orchAvailable} />
-        )}
-
-        {messages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} />
-        ))}
-
-        {loading && <ThinkingBubble />}
-        <div ref={bottomRef} />
-      </div>
-
-      {/* ── Input area ── */}
-      <div
-        className="shrink-0 px-3 md:px-6 pb-4 pt-3"
-        style={{
-          background: "var(--glass-bg-heavy)",
-          backdropFilter: "var(--glass-blur)",
-          WebkitBackdropFilter: "var(--glass-blur)" as React.CSSProperties["backdropFilter"],
-          borderTop: "1px solid var(--glass-border)",
-          boxShadow: "0 -1px 0 var(--glass-border-bright), 0 -4px 20px rgba(0,0,0,0.2)",
-        }}
-      >
-        {/* Quick prompts — only shown when chat is empty */}
-        {messages.length === 0 && (
-          <div className="flex gap-2 flex-wrap mb-3">
-            {QUICK_PROMPTS.slice(0, 4).map((p) => (
-              <button
-                key={p}
-                onClick={() => send(p)}
-                disabled={loading}
-                className="px-3 py-1.5 rounded-lg text-[11px] transition-all disabled:opacity-50"
-                style={{
-                  background:
-                    "linear-gradient(var(--glass-bg), var(--glass-bg)) padding-box," +
-                    "linear-gradient(135deg, var(--glass-border-bright), var(--glass-border)) border-box",
-                  border: "1px solid transparent",
-                  color: "var(--text-secondary)",
-                  boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
-                }}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Composer */}
+    <div className="flex h-screen overflow-hidden">
+      {/* ── Mobile drawer backdrop ── */}
+      {drawerOpen && (
         <div
-          className={cn(
-            "flex items-end gap-3 rounded-2xl px-3 py-2 transition-all duration-200",
-            composerFocused && "glass-shimmer"
-          )}
-          style={composerBorder}
+          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm md:hidden"
+          onClick={() => setDrawerOpen(false)}
+        />
+      )}
+
+      {/* ── History Rail ── */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 flex flex-col w-72 transition-transform duration-300",
+          "md:relative md:translate-x-0 md:z-auto md:shrink-0",
+          drawerOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+        style={glassRail}
+      >
+        {/* Rail header */}
+        <div
+          className="flex items-center justify-between px-4 py-3 shrink-0"
+          style={{ borderBottom: "1px solid var(--glass-border)" }}
         >
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onFocus={() => setComposerFocused(true)}
-            onBlur={() => setComposerFocused(false)}
-            placeholder="Ask OpenClaw anything… (Enter to send, Shift+Enter for newline)"
-            disabled={loading || orchAvailable === false}
-            rows={1}
-            className="flex-1 bg-transparent text-xs resize-none focus:outline-none leading-relaxed min-h-[22px]"
-            style={{ color: "var(--text-primary)" }}
-          />
-          <button
-            onClick={() => send(input)}
-            disabled={loading || !input.trim() || orchAvailable === false}
-            className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all disabled:opacity-40"
-            style={
-              input.trim() && !loading
-                ? {
-                    background: "rgba(29,78,216,0.9)",
-                    boxShadow: "0 0 16px var(--glow-blue-bright), 0 2px 4px rgba(0,0,0,0.3)",
-                  }
-                : {
-                    background: "var(--bg-hover)",
-                    boxShadow: "none",
-                  }
-            }
-          >
-            {loading ? (
-              <RiLoaderLine className="w-4 h-4 animate-spin text-gray-400" />
-            ) : (
-              <RiSendPlaneLine className="w-4 h-4 text-white" />
-            )}
-          </button>
+          <span className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
+            Chat History
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={newChat}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all"
+              style={{
+                background:
+                  "linear-gradient(rgba(29,78,216,0.18), rgba(29,78,216,0.10)) padding-box," +
+                  "linear-gradient(135deg, rgba(96,165,250,0.40), rgba(29,78,216,0.20)) border-box",
+                border: "1px solid transparent",
+                color: "#93c5fd",
+                boxShadow: "0 0 10px var(--glow-blue)",
+              }}
+            >
+              <RiAddLine className="w-3 h-3" />
+              New
+            </button>
+            <button
+              onClick={() => setDrawerOpen(false)}
+              className="md:hidden p-1.5 rounded-lg transition-all"
+              style={{ color: "var(--text-muted)" }}
+            >
+              <RiCloseLine className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
-        <p className="text-[10px] mt-2 text-center" style={{ color: "var(--text-muted)" }}>
-          GPT-5.1-codex via OpenClaw · Pi 192.168.1.222 · responses take 15–60 s
-        </p>
+        {/* Session list */}
+        <div className="flex-1 overflow-y-auto py-2">
+          {sessions.length === 0 && (
+            <p
+              className="text-center text-[11px] py-8 px-4"
+              style={{ color: "var(--text-muted)" }}
+            >
+              No past sessions yet.
+              <br />
+              Start a conversation!
+            </p>
+          )}
+          {sessions.map((s) => {
+            const isActive = s.id === sessionId;
+            return (
+              <div
+                key={s.id}
+                className={cn(
+                  "group mx-2 mb-1 px-3 py-2.5 rounded-xl cursor-pointer transition-all",
+                  isActive && "ring-1"
+                )}
+                style={
+                  isActive
+                    ? {
+                        background:
+                          "linear-gradient(rgba(29,78,216,0.14), rgba(29,78,216,0.08)) padding-box," +
+                          "linear-gradient(135deg, rgba(96,165,250,0.35), rgba(29,78,216,0.15)) border-box",
+                        border: "1px solid transparent",
+                        boxShadow: "0 0 12px var(--glow-blue)",
+                      }
+                    : {
+                        background:
+                          "linear-gradient(var(--glass-bg), var(--glass-bg)) padding-box," +
+                          "linear-gradient(135deg, var(--glass-border-bright), var(--glass-border)) border-box",
+                        border: "1px solid transparent",
+                      }
+                }
+                onClick={() => resumeSession(s)}
+              >
+                {editingId === s.id ? (
+                  <div
+                    className="flex items-center gap-1"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <input
+                      ref={editInputRef}
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitRename(s.id);
+                        if (e.key === "Escape") setEditingId(null);
+                      }}
+                      className="flex-1 bg-transparent text-[11px] focus:outline-none min-w-0"
+                      style={{ color: "var(--text-primary)" }}
+                    />
+                    <button
+                      onClick={() => commitRename(s.id)}
+                      className="shrink-0 p-0.5"
+                      style={{ color: "#34d399" }}
+                    >
+                      <RiCheckFill className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-start justify-between gap-1">
+                      <p
+                        className="text-[11px] font-medium leading-snug truncate flex-1"
+                        style={{ color: isActive ? "#93c5fd" : "var(--text-primary)" }}
+                      >
+                        {s.title}
+                      </p>
+                      {/* Actions — visible on hover or active */}
+                      <div
+                        className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          onClick={() => startRename(s)}
+                          className="p-1 rounded hover:bg-white/10 transition-colors"
+                          style={{ color: "var(--text-muted)" }}
+                          title="Rename"
+                        >
+                          <RiEditLine className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => deleteSessionById(s.id)}
+                          className="p-1 rounded hover:bg-red-500/20 transition-colors"
+                          style={{ color: "var(--text-muted)" }}
+                          title="Delete"
+                        >
+                          <RiDeleteBinLine className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                    <p
+                      className="text-[10px] mt-0.5 truncate opacity-60"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      {s.last_message_preview ?? "No messages yet"}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[9px]" style={{ color: "var(--text-muted)" }}>
+                        {relTime(s.updated_at)}
+                      </span>
+                      {s.message_count > 0 && (
+                        <span
+                          className="text-[9px] px-1 rounded"
+                          style={{
+                            background: "var(--bg-elevated)",
+                            color: "var(--text-muted)",
+                          }}
+                        >
+                          {s.message_count} msg{s.message_count !== 1 ? "s" : ""}
+                        </span>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </aside>
+
+      {/* ── Main chat area ── */}
+      <div className="flex flex-col flex-1 min-w-0 h-full">
+        {/* ── Header ── */}
+        <div
+          className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 shrink-0 sticky top-0 z-10"
+          style={{
+            background: "var(--glass-bg-heavy)",
+            backdropFilter: "var(--glass-blur)",
+            WebkitBackdropFilter: "var(--glass-blur)" as React.CSSProperties["backdropFilter"],
+            borderBottom: "1px solid var(--glass-border)",
+            boxShadow: "0 1px 0 var(--glass-border-bright), 0 4px 24px rgba(0,0,0,0.35)",
+          }}
+        >
+          <div className="flex items-center gap-3">
+            {/* History drawer toggle (mobile) */}
+            <button
+              onClick={() => setDrawerOpen(true)}
+              className="md:hidden p-2 rounded-lg transition-all"
+              style={{
+                background: "var(--glass-bg-elevated)",
+                border: "1px solid var(--glass-border)",
+                color: "var(--text-secondary)",
+              }}
+              aria-label="Open history"
+            >
+              <RiHistoryLine className="w-4 h-4" />
+            </button>
+
+            {/* Agent icon */}
+            <div
+              className="w-8 h-8 md:w-9 md:h-9 rounded-xl flex items-center justify-center shrink-0"
+              style={{
+                background:
+                  "linear-gradient(rgba(29,78,216,0.18), rgba(29,78,216,0.10)) padding-box," +
+                  "linear-gradient(135deg, rgba(96,165,250,0.40), rgba(29,78,216,0.20)) border-box",
+                border: "1px solid transparent",
+                boxShadow: "0 0 14px var(--glow-blue)",
+              }}
+            >
+              <RiRobotLine className="w-4 h-4 text-blue-400" />
+            </div>
+
+            <div>
+              <h1 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                OpenClaw
+              </h1>
+              <p className="text-[10px] mt-0.5 hidden md:block" style={{ color: "var(--text-muted)" }}>
+                Natural language orchestrator · session{" "}
+                <span className="font-mono">{sessionId.replace("dashboard-", "")}</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 md:gap-3">
+            {orchAvailable === false && (
+              <div className="flex items-center gap-1.5 text-amber-400 text-xs">
+                <RiAlertLine className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">OpenClaw unavailable</span>
+              </div>
+            )}
+            {orchAvailable === true && (
+              <div className="flex items-center gap-1.5 text-emerald-400 text-xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse-dot" />
+                <span className="hidden sm:inline">Ready</span>
+              </div>
+            )}
+            <button
+              onClick={newChat}
+              className="flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+              style={{
+                background:
+                  "linear-gradient(var(--glass-bg-elevated), var(--glass-bg-elevated)) padding-box," +
+                  "linear-gradient(135deg, var(--glass-border-bright), var(--glass-border)) border-box",
+                border: "1px solid transparent",
+                color: "var(--text-secondary)",
+                boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
+              }}
+            >
+              <RiAddLine className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">New chat</span>
+            </button>
+          </div>
+        </div>
+
+        {/* DB warning banner */}
+        {dbWarning && (
+          <div
+            className="flex items-center gap-2 px-4 py-2 text-xs shrink-0"
+            style={{
+              background: "rgba(245,158,11,0.08)",
+              borderBottom: "1px solid rgba(245,158,11,0.2)",
+              color: "#fbbf24",
+            }}
+          >
+            <RiAlertLine className="w-3.5 h-3.5 shrink-0" />
+            <span>Chat history unavailable — messages will not be saved. ({dbWarning})</span>
+            <button
+              onClick={() => setDbWarning(null)}
+              className="ml-auto shrink-0"
+              style={{ color: "#fbbf24" }}
+            >
+              <RiCloseLine className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* ── Messages area ── */}
+        <div className="flex-1 overflow-y-auto px-3 md:px-6 py-4 space-y-3">
+          {loadingSession && (
+            <div className="flex items-center justify-center py-12">
+              <RiLoaderLine className="w-5 h-5 animate-spin" style={{ color: "var(--text-muted)" }} />
+            </div>
+          )}
+          {!loadingSession && messages.length === 0 && !loading && (
+            <WelcomeScreen onPrompt={(p) => send(p)} available={orchAvailable} />
+          )}
+
+          {!loadingSession &&
+            messages.map((msg) => <MessageBubble key={msg.id} message={msg} />)}
+
+          {loading && <ThinkingBubble />}
+          <div ref={bottomRef} />
+        </div>
+
+        {/* ── Input area ── */}
+        <div
+          className="shrink-0 px-3 md:px-6 pb-4 pt-3"
+          style={{
+            background: "var(--glass-bg-heavy)",
+            backdropFilter: "var(--glass-blur)",
+            WebkitBackdropFilter: "var(--glass-blur)" as React.CSSProperties["backdropFilter"],
+            borderTop: "1px solid var(--glass-border)",
+            boxShadow: "0 -1px 0 var(--glass-border-bright), 0 -4px 20px rgba(0,0,0,0.2)",
+          }}
+        >
+          {/* Quick prompts — only shown when chat is empty */}
+          {messages.length === 0 && !loadingSession && (
+            <div className="flex gap-2 flex-wrap mb-3">
+              {QUICK_PROMPTS.slice(0, 4).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => send(p)}
+                  disabled={loading}
+                  className="px-3 py-1.5 rounded-lg text-[11px] transition-all disabled:opacity-50"
+                  style={{
+                    background:
+                      "linear-gradient(var(--glass-bg), var(--glass-bg)) padding-box," +
+                      "linear-gradient(135deg, var(--glass-border-bright), var(--glass-border)) border-box",
+                    border: "1px solid transparent",
+                    color: "var(--text-secondary)",
+                    boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
+                  }}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Composer */}
+          <div
+            className={cn(
+              "flex items-end gap-3 rounded-2xl px-3 py-2 transition-all duration-200",
+              composerFocused && "glass-shimmer"
+            )}
+            style={composerBorder}
+          >
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onFocus={() => setComposerFocused(true)}
+              onBlur={() => setComposerFocused(false)}
+              placeholder="Ask OpenClaw anything… (Enter to send, Shift+Enter for newline)"
+              disabled={loading || orchAvailable === false}
+              rows={1}
+              className="flex-1 bg-transparent text-xs resize-none focus:outline-none leading-relaxed min-h-[22px]"
+              style={{ color: "var(--text-primary)" }}
+            />
+            <button
+              onClick={() => send(input)}
+              disabled={loading || !input.trim() || orchAvailable === false}
+              className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all disabled:opacity-40"
+              style={
+                input.trim() && !loading
+                  ? {
+                      background: "rgba(29,78,216,0.9)",
+                      boxShadow: "0 0 16px var(--glow-blue-bright), 0 2px 4px rgba(0,0,0,0.3)",
+                    }
+                  : {
+                      background: "var(--bg-hover)",
+                      boxShadow: "none",
+                    }
+              }
+            >
+              {loading ? (
+                <RiLoaderLine className="w-4 h-4 animate-spin text-gray-400" />
+              ) : (
+                <RiSendPlaneLine className="w-4 h-4 text-white" />
+              )}
+            </button>
+          </div>
+
+          <p className="text-[10px] mt-2 text-center" style={{ color: "var(--text-muted)" }}>
+            GPT-5.1-codex via OpenClaw · Pi 192.168.1.222 · responses take 15–60 s
+          </p>
+        </div>
       </div>
     </div>
   );
