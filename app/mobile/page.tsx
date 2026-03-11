@@ -29,35 +29,23 @@ function uid() {
   return Math.random().toString(36).slice(2);
 }
 
-// ── Gradient border helpers ────────────────────────────────────────────────
+// ── Apple system colors ────────────────────────────────────────────────────
 
-const glassAssistant: React.CSSProperties = {
-  background:
-    "linear-gradient(rgba(14,20,32,0.82), rgba(14,20,32,0.75)) padding-box," +
-    "linear-gradient(135deg, rgba(255,255,255,0.13), rgba(255,255,255,0.05)) border-box",
-  border: "1px solid transparent",
-  backdropFilter: "blur(16px) saturate(180%)",
-  WebkitBackdropFilter: "blur(16px) saturate(180%)" as React.CSSProperties["backdropFilter"],
-  boxShadow: "0 2px 14px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.045)",
-};
-
-const glassUser: React.CSSProperties = {
-  background:
-    "linear-gradient(rgba(29,78,216,0.88), rgba(37,99,235,0.78)) padding-box," +
-    "linear-gradient(135deg, rgba(96,165,250,0.60), rgba(29,78,216,0.25)) border-box",
-  border: "1px solid transparent",
-  backdropFilter: "blur(12px) saturate(160%)",
-  WebkitBackdropFilter: "blur(12px) saturate(160%)" as React.CSSProperties["backdropFilter"],
-  boxShadow:
-    "0 0 24px rgba(29,78,216,0.32), 0 2px 10px rgba(0,0,0,0.28)",
-};
-
-const glassError: React.CSSProperties = {
-  background:
-    "linear-gradient(rgba(239,68,68,0.10), rgba(239,68,68,0.06)) padding-box," +
-    "linear-gradient(135deg, rgba(239,68,68,0.38), rgba(239,68,68,0.14)) border-box",
-  border: "1px solid transparent",
-  boxShadow: "0 0 16px rgba(239,68,68,0.22)",
+const colors = {
+  bg: "#000000",
+  bgSecondary: "#1C1C1E",
+  bgTertiary: "#2C2C2E",
+  bgQuaternary: "#3A3A3C",
+  separator: "rgba(84,84,88,0.65)",
+  separatorOpaque: "#38383A",
+  blue: "#007AFF",
+  green: "#30D158",
+  red: "#FF453A",
+  orange: "#FF9F0A",
+  labelPrimary: "#FFFFFF",
+  labelSecondary: "rgba(235,235,245,0.6)",
+  labelTertiary: "rgba(235,235,245,0.3)",
+  labelQuaternary: "rgba(235,235,245,0.18)",
 };
 
 // ── Main Component ──────────────────────────────────────────────────────────
@@ -71,7 +59,6 @@ export default function MobileChatPage() {
   const [composerFocused, setComposerFocused] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const messagesRef = useRef<HTMLDivElement>(null);
   const { fire: haptic } = useHaptics();
 
   useEffect(() => {
@@ -89,7 +76,6 @@ export default function MobileChatPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  // Expand textarea as user types
   useEffect(() => {
     const el = inputRef.current;
     if (!el) return;
@@ -171,23 +157,7 @@ export default function MobileChatPage() {
   }
 
   const isEmpty = messages.length === 0 && !loading;
-
-  // Focused vs idle gradient border for composer
-  const composerBorderStyle: React.CSSProperties = composerFocused
-    ? {
-        background:
-          "linear-gradient(rgba(22,29,46,0.85), rgba(22,29,46,0.85)) padding-box," +
-          "linear-gradient(135deg, rgba(59,130,246,0.58), rgba(139,92,246,0.32), rgba(59,130,246,0.22)) border-box",
-        border: "1px solid transparent",
-        boxShadow: "0 0 0 3px rgba(29,78,216,0.14), 0 4px 24px rgba(0,0,0,0.35)",
-      }
-    : {
-        background:
-          "linear-gradient(rgba(22,29,46,0.80), rgba(22,29,46,0.80)) padding-box," +
-          "linear-gradient(135deg, rgba(255,255,255,0.13), rgba(255,255,255,0.05), rgba(255,255,255,0.10)) border-box",
-        border: "1px solid transparent",
-        boxShadow: "0 2px 10px rgba(0,0,0,0.22)",
-      };
+  const canSend = input.trim() && !loading && orchAvailable !== false;
 
   return (
     <div
@@ -195,112 +165,117 @@ export default function MobileChatPage() {
         display: "flex",
         flexDirection: "column",
         height: "100dvh",
-        background: "var(--bg-base)",
-        fontFamily:
-          "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif",
+        background: colors.bg,
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif",
+        WebkitFontSmoothing: "antialiased",
       }}
     >
-      {/* ── Header ── */}
+      {/* ── Navigation Bar ── */}
       <header
         style={{
           flexShrink: 0,
-          paddingTop: "calc(env(safe-area-inset-top, 0px) + 12px)",
-          paddingBottom: 14,
-          paddingLeft: 20,
-          paddingRight: 20,
-          background: "rgba(8,12,18,0.88)",
-          backdropFilter: "blur(28px) saturate(200%)",
-          WebkitBackdropFilter: "blur(28px) saturate(200%)",
-          borderBottom: "1px solid rgba(255,255,255,0.07)",
-          boxShadow: "0 1px 0 rgba(255,255,255,0.06), 0 4px 20px rgba(0,0,0,0.4)",
+          paddingTop: "calc(env(safe-area-inset-top, 0px) + 10px)",
+          paddingBottom: 12,
+          paddingLeft: 16,
+          paddingRight: 16,
+          background: "rgba(28,28,30,0.92)",
+          backdropFilter: "blur(20px) saturate(180%)",
+          WebkitBackdropFilter: "blur(20px) saturate(180%)",
+          borderBottom: `0.5px solid ${colors.separator}`,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           gap: 12,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          {/* Bot icon with glow */}
+        {/* Left: avatar + name */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div
             style={{
-              width: 38,
-              height: 38,
-              borderRadius: 12,
-              background:
-                "linear-gradient(rgba(29,78,216,0.20), rgba(29,78,216,0.10)) padding-box," +
-                "linear-gradient(135deg, rgba(96,165,250,0.50), rgba(29,78,216,0.22)) border-box",
-              border: "1px solid transparent",
+              width: 36,
+              height: 36,
+              borderRadius: "50%",
+              background: colors.blue,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
-              boxShadow: "0 0 18px rgba(29,78,216,0.28)",
             }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <rect x="3" y="11" width="18" height="10" rx="3" stroke="#60a5fa" strokeWidth="1.5" />
-              <path d="M9 11V8a3 3 0 0 1 6 0v3" stroke="#60a5fa" strokeWidth="1.5" />
-              <circle cx="9" cy="16" r="1.5" fill="#60a5fa" />
-              <circle cx="15" cy="16" r="1.5" fill="#60a5fa" />
-              <path d="M12 4v2" stroke="#60a5fa" strokeWidth="1.5" strokeLinecap="round" />
+              <circle cx="12" cy="8" r="4" fill="white" />
+              <path d="M5 20c0-3.866 3.134-7 7-7s7 3.134 7 7" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
             </svg>
           </div>
 
           <div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary)", lineHeight: 1.2 }}>
+            <div
+              style={{
+                fontSize: 16,
+                fontWeight: 600,
+                color: colors.labelPrimary,
+                lineHeight: 1.2,
+                letterSpacing: -0.3,
+              }}
+            >
               OpenClaw
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 3 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
               {orchAvailable === true && (
                 <>
                   <span
                     className="animate-pulse-dot"
                     style={{
-                      width: 6, height: 6, borderRadius: "50%",
-                      background: "#34d399", display: "inline-block", flexShrink: 0,
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background: colors.green,
+                      display: "inline-block",
                     }}
                   />
-                  <span style={{ fontSize: 11, color: "#34d399" }}>Ready</span>
+                  <span style={{ fontSize: 11, color: colors.green, fontWeight: 500 }}>Active</span>
                 </>
               )}
               {orchAvailable === false && (
                 <>
-                  <span style={{
-                    width: 6, height: 6, borderRadius: "50%",
-                    background: "#f59e0b", display: "inline-block", flexShrink: 0,
-                  }} />
-                  <span style={{ fontSize: 11, color: "#f59e0b" }}>Offline</span>
+                  <span
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background: colors.orange,
+                      display: "inline-block",
+                    }}
+                  />
+                  <span style={{ fontSize: 11, color: colors.orange, fontWeight: 500 }}>Offline</span>
                 </>
               )}
               {orchAvailable === null && (
-                <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Connecting…</span>
+                <span style={{ fontSize: 11, color: colors.labelTertiary }}>Connecting…</span>
               )}
             </div>
           </div>
         </div>
 
-        {/* New chat button */}
+        {/* Right: new chat */}
         <button
           onClick={newChat}
           style={{
-            width: 38,
-            height: 38,
-            borderRadius: 11,
-            background:
-              "linear-gradient(rgba(22,29,46,0.85), rgba(22,29,46,0.85)) padding-box," +
-              "linear-gradient(135deg, rgba(255,255,255,0.13), rgba(255,255,255,0.05)) border-box",
-            border: "1px solid transparent",
-            color: "var(--text-secondary)",
+            width: 34,
+            height: 34,
+            borderRadius: "50%",
+            background: colors.bgTertiary,
+            border: "none",
+            color: colors.blue,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             cursor: "pointer",
-            boxShadow: "0 1px 6px rgba(0,0,0,0.25)",
             WebkitTapHighlightColor: "transparent",
           }}
           title="New chat"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
             <path d="M12 5v14M5 12h14" />
           </svg>
         </button>
@@ -308,22 +283,23 @@ export default function MobileChatPage() {
 
       {/* ── Messages area ── */}
       <div
-        ref={messagesRef}
         style={{
           flex: 1,
           overflowY: "auto",
           overscrollBehavior: "contain",
           WebkitOverflowScrolling: "touch",
-          paddingTop: 12,
+          paddingTop: 8,
           paddingBottom: 8,
         }}
       >
         {isEmpty && <WelcomeScreen onPrompt={send} available={orchAvailable} />}
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "0 12px" }}>
-          {messages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} />
-          ))}
+        <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: "0 8px" }}>
+          {messages.map((msg, i) => {
+            const prev = messages[i - 1];
+            const showAvatar = !prev || prev.role !== msg.role;
+            return <MessageBubble key={msg.id} message={msg} showAvatar={showAvatar} />;
+          })}
           {loading && <TypingIndicator />}
         </div>
 
@@ -334,90 +310,100 @@ export default function MobileChatPage() {
       <div
         style={{
           flexShrink: 0,
-          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 10px)",
-          paddingTop: 10,
+          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)",
+          paddingTop: 8,
           paddingLeft: 12,
           paddingRight: 12,
-          background: "rgba(8,12,18,0.90)",
-          backdropFilter: "blur(28px) saturate(200%)",
-          WebkitBackdropFilter: "blur(28px) saturate(200%)",
-          borderTop: "1px solid rgba(255,255,255,0.07)",
-          boxShadow: "0 -1px 0 rgba(255,255,255,0.06), 0 -4px 16px rgba(0,0,0,0.3)",
+          background: "rgba(28,28,30,0.92)",
+          backdropFilter: "blur(20px) saturate(180%)",
+          WebkitBackdropFilter: "blur(20px) saturate(180%)",
+          borderTop: `0.5px solid ${colors.separator}`,
         }}
       >
         <div
-          className={composerFocused ? "glass-shimmer" : ""}
           style={{
             display: "flex",
             alignItems: "flex-end",
             gap: 8,
-            borderRadius: 22,
-            padding: "8px 8px 8px 16px",
-            transition: "box-shadow 0.2s ease",
-            ...composerBorderStyle,
           }}
         >
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onFocus={() => setComposerFocused(true)}
-            onBlur={() => setComposerFocused(false)}
-            placeholder={orchAvailable === false ? "OpenClaw offline" : "Message OpenClaw…"}
-            disabled={loading || orchAvailable === false}
-            rows={1}
+          {/* Text input */}
+          <div
             style={{
               flex: 1,
-              background: "transparent",
-              border: "none",
-              outline: "none",
-              resize: "none",
-              fontSize: 15,
-              lineHeight: 1.45,
-              color: "var(--text-primary)",
-              minHeight: 24,
-              maxHeight: 120,
-              fontFamily: "inherit",
-              WebkitAppearance: "none",
+              background: colors.bgSecondary,
+              borderRadius: 20,
+              border: composerFocused
+                ? `1.5px solid ${colors.blue}`
+                : `1px solid ${colors.separatorOpaque}`,
+              padding: "8px 14px",
+              transition: "border-color 0.15s ease",
+              minHeight: 38,
+              display: "flex",
+              alignItems: "flex-end",
             }}
-          />
+          >
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onFocus={() => setComposerFocused(true)}
+              onBlur={() => setComposerFocused(false)}
+              placeholder={orchAvailable === false ? "OpenClaw offline" : "iMessage"}
+              disabled={loading || orchAvailable === false}
+              rows={1}
+              style={{
+                flex: 1,
+                background: "transparent",
+                border: "none",
+                outline: "none",
+                resize: "none",
+                fontSize: 16,
+                lineHeight: 1.4,
+                color: colors.labelPrimary,
+                minHeight: 22,
+                maxHeight: 120,
+                fontFamily: "inherit",
+                WebkitAppearance: "none",
+              }}
+            />
+          </div>
+
+          {/* Send button */}
           <button
             onClick={() => send(input)}
-            disabled={loading || !input.trim() || orchAvailable === false}
+            disabled={!canSend}
             style={{
-              width: 36,
-              height: 36,
+              width: 34,
+              height: 34,
               borderRadius: "50%",
               border: "none",
-              background:
-                input.trim() && !loading && orchAvailable !== false
-                  ? "rgba(29,78,216,0.92)"
-                  : "var(--bg-hover)",
-              boxShadow:
-                input.trim() && !loading && orchAvailable !== false
-                  ? "0 0 20px rgba(59,130,246,0.40), 0 2px 6px rgba(0,0,0,0.30)"
-                  : "none",
-              color: "white",
+              background: canSend ? colors.blue : colors.bgTertiary,
+              color: canSend ? "white" : colors.labelQuaternary,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              cursor: input.trim() && !loading ? "pointer" : "default",
+              cursor: canSend ? "pointer" : "default",
               flexShrink: 0,
-              transition: "background 0.15s, box-shadow 0.15s",
+              transition: "background 0.15s, color 0.15s",
               WebkitTapHighlightColor: "transparent",
             }}
           >
             {loading ? (
               <svg
-                width="16" height="16" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="2"
-                style={{ opacity: 0.5, animation: "spin 1s linear infinite" }}
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                style={{ animation: "spin 1s linear infinite" }}
               >
                 <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
               </svg>
             ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
               </svg>
             )}
@@ -432,7 +418,7 @@ export default function MobileChatPage() {
   );
 }
 
-// ── Sub-components ──────────────────────────────────────────────────────────
+// ── Welcome Screen ──────────────────────────────────────────────────────────
 
 function WelcomeScreen({
   onPrompt,
@@ -447,49 +433,51 @@ function WelcomeScreen({
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        padding: "32px 20px 20px",
+        padding: "40px 20px 24px",
         textAlign: "center",
       }}
     >
-      {/* Glowing icon */}
+      {/* App icon */}
       <div
         style={{
-          width: 68,
-          height: 68,
-          borderRadius: 20,
-          background:
-            "linear-gradient(rgba(29,78,216,0.18), rgba(29,78,216,0.08)) padding-box," +
-            "linear-gradient(135deg, rgba(96,165,250,0.50), rgba(29,78,216,0.22)) border-box",
-          border: "1px solid transparent",
+          width: 72,
+          height: 72,
+          borderRadius: 18,
+          background: `linear-gradient(145deg, #1a7aff, #0055cc)`,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          marginBottom: 18,
-          boxShadow: "0 0 36px rgba(29,78,216,0.28), 0 0 72px rgba(29,78,216,0.10)",
+          marginBottom: 16,
+          boxShadow: "0 4px 24px rgba(0,122,255,0.4)",
         }}
       >
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-          <rect x="3" y="11" width="18" height="10" rx="3" stroke="#60a5fa" strokeWidth="1.5" />
-          <path d="M9 11V8a3 3 0 0 1 6 0v3" stroke="#60a5fa" strokeWidth="1.5" />
-          <circle cx="9" cy="16" r="1.5" fill="#60a5fa" />
-          <circle cx="15" cy="16" r="1.5" fill="#60a5fa" />
-          <path d="M12 4v2" stroke="#60a5fa" strokeWidth="1.5" strokeLinecap="round" />
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="8" r="4" fill="white" />
+          <path d="M4 20c0-4.418 3.582-8 8-8s8 3.582 8 8" stroke="white" strokeWidth="2" strokeLinecap="round" />
         </svg>
       </div>
 
-      <div style={{ fontSize: 19, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8 }}>
-        OpenClaw Agent
+      <div
+        style={{
+          fontSize: 22,
+          fontWeight: 700,
+          color: colors.labelPrimary,
+          marginBottom: 6,
+          letterSpacing: -0.5,
+        }}
+      >
+        OpenClaw
       </div>
       <div
         style={{
-          fontSize: 13,
-          color: "var(--text-muted)",
-          lineHeight: 1.55,
-          maxWidth: 280,
-          marginBottom: 28,
+          fontSize: 14,
+          color: colors.labelSecondary,
+          lineHeight: 1.5,
+          maxWidth: 260,
+          marginBottom: 32,
         }}
       >
-        Ask in plain English. Queue jobs, check workers, inspect runs, create repos.
+        Your AI orchestrator. Queue jobs, check workers, inspect runs.
       </div>
 
       {available === false && (
@@ -499,16 +487,13 @@ function WelcomeScreen({
             alignItems: "center",
             gap: 8,
             padding: "10px 16px",
-            borderRadius: 14,
-            background:
-              "linear-gradient(rgba(245,158,11,0.08), rgba(245,158,11,0.04)) padding-box," +
-              "linear-gradient(135deg, rgba(245,158,11,0.38), rgba(245,158,11,0.14)) border-box",
-            border: "1px solid transparent",
-            color: "#f59e0b",
-            fontSize: 12,
-            marginBottom: 22,
+            borderRadius: 12,
+            background: "rgba(255,159,10,0.12)",
+            border: `1px solid rgba(255,159,10,0.3)`,
+            color: colors.orange,
+            fontSize: 13,
+            marginBottom: 24,
             maxWidth: 290,
-            textAlign: "left",
           }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}>
@@ -518,14 +503,14 @@ function WelcomeScreen({
         </div>
       )}
 
-      {/* Quick prompt chips with glass styling */}
+      {/* Quick prompt grid */}
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
-          gap: 9,
+          gap: 8,
           width: "100%",
-          maxWidth: 350,
+          maxWidth: 340,
         }}
       >
         {QUICK_PROMPTS.map((p) => (
@@ -534,20 +519,18 @@ function WelcomeScreen({
             onClick={() => onPrompt(p)}
             disabled={available === false}
             style={{
-              padding: "11px 13px",
-              borderRadius: 14,
-              background:
-                "linear-gradient(rgba(14,20,32,0.85), rgba(14,20,32,0.75)) padding-box," +
-                "linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04)) border-box",
-              border: "1px solid transparent",
-              color: "var(--text-secondary)",
-              fontSize: 12,
+              padding: "12px 14px",
+              borderRadius: 12,
+              background: colors.bgSecondary,
+              border: `1px solid ${colors.separatorOpaque}`,
+              color: colors.labelPrimary,
+              fontSize: 13,
               textAlign: "left",
               cursor: available === false ? "default" : "pointer",
-              opacity: available === false ? 0.4 : 1,
+              opacity: available === false ? 0.35 : 1,
               WebkitTapHighlightColor: "transparent",
               lineHeight: 1.35,
-              boxShadow: "0 1px 6px rgba(0,0,0,0.20)",
+              fontFamily: "inherit",
             }}
           >
             {p}
@@ -558,61 +541,70 @@ function WelcomeScreen({
   );
 }
 
+// ── Typing Indicator ────────────────────────────────────────────────────────
+
 function TypingIndicator() {
   return (
     <div
       style={{
         display: "flex",
         alignItems: "flex-end",
-        gap: 8,
+        gap: 6,
         paddingTop: 4,
         paddingBottom: 4,
+        paddingLeft: 8,
       }}
       className="msg-spring-in"
     >
-      {/* Agent avatar */}
       <div
         style={{
-          width: 28, height: 28, borderRadius: "50%",
-          background:
-            "linear-gradient(rgba(29,78,216,0.18), rgba(29,78,216,0.08)) padding-box," +
-            "linear-gradient(135deg, rgba(96,165,250,0.45), rgba(29,78,216,0.18)) border-box",
-          border: "1px solid transparent",
+          width: 28,
+          height: 28,
+          borderRadius: "50%",
+          background: colors.bgTertiary,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           flexShrink: 0,
-          boxShadow: "0 0 10px rgba(29,78,216,0.22)",
         }}
       >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-          <rect x="3" y="11" width="18" height="10" rx="3" stroke="#60a5fa" strokeWidth="1.5" />
-          <path d="M9 11V8a3 3 0 0 1 6 0v3" stroke="#60a5fa" strokeWidth="1.5" />
-          <circle cx="9" cy="16" r="1.5" fill="#60a5fa" />
-          <circle cx="15" cy="16" r="1.5" fill="#60a5fa" />
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="8" r="4" fill={colors.blue} />
+          <path d="M5 20c0-3.866 3.134-7 7-7s7 3.134 7 7" stroke={colors.blue} strokeWidth="2" strokeLinecap="round" />
         </svg>
       </div>
-      {/* Typing bubble */}
+
       <div
         style={{
           padding: "12px 16px",
           borderRadius: 18,
           borderBottomLeftRadius: 4,
+          background: colors.bgSecondary,
           display: "flex",
           alignItems: "center",
-          gap: 5,
-          ...glassAssistant,
+          gap: 4,
         }}
       >
-        <span className="bounce-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--text-muted)", display: "inline-block" }} />
-        <span className="bounce-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--text-muted)", display: "inline-block", animationDelay: "0.15s" }} />
-        <span className="bounce-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--text-muted)", display: "inline-block", animationDelay: "0.30s" }} />
+        <span
+          className="bounce-dot"
+          style={{ width: 7, height: 7, borderRadius: "50%", background: colors.labelTertiary, display: "inline-block" }}
+        />
+        <span
+          className="bounce-dot"
+          style={{ width: 7, height: 7, borderRadius: "50%", background: colors.labelTertiary, display: "inline-block", animationDelay: "0.15s" }}
+        />
+        <span
+          className="bounce-dot"
+          style={{ width: 7, height: 7, borderRadius: "50%", background: colors.labelTertiary, display: "inline-block", animationDelay: "0.30s" }}
+        />
       </div>
     </div>
   );
 }
 
-function MessageBubble({ message }: { message: Message }) {
+// ── Message Bubble ──────────────────────────────────────────────────────────
+
+function MessageBubble({ message, showAvatar }: { message: Message; showAvatar: boolean }) {
   const [copied, setCopied] = useState(false);
   const isUser = message.role === "user";
   const isError = message.role === "error";
@@ -625,7 +617,15 @@ function MessageBubble({ message }: { message: Message }) {
   }
 
   const time = message.ts.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  const bubbleStyle = isUser ? glassUser : isError ? glassError : glassAssistant;
+
+  const bubbleBg = isUser
+    ? colors.blue
+    : isError
+    ? "rgba(255,69,58,0.15)"
+    : colors.bgSecondary;
+
+  const bubbleBorder = isError ? `1px solid rgba(255,69,58,0.3)` : "none";
+  const textColor = isUser ? "#ffffff" : isError ? colors.red : colors.labelPrimary;
 
   return (
     <div
@@ -634,46 +634,44 @@ function MessageBubble({ message }: { message: Message }) {
         display: "flex",
         flexDirection: "column",
         alignItems: isUser ? "flex-end" : "flex-start",
-        marginBottom: 8,
+        marginBottom: 2,
+        paddingLeft: isUser ? 0 : 4,
+        paddingRight: isUser ? 4 : 0,
       }}
     >
       <div
         style={{
           display: "flex",
           alignItems: "flex-end",
-          gap: 8,
+          gap: 6,
           flexDirection: isUser ? "row-reverse" : "row",
-          maxWidth: "88%",
+          maxWidth: "82%",
         }}
       >
-        {/* Avatar (agent only) */}
+        {/* Avatar (assistant only, when first in sequence) */}
         {!isUser && (
           <div
             style={{
-              width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
-              background: isError
-                ? "linear-gradient(rgba(239,68,68,0.15), rgba(239,68,68,0.07)) padding-box, linear-gradient(135deg, rgba(239,68,68,0.42), rgba(239,68,68,0.15)) border-box"
-                : "linear-gradient(rgba(29,78,216,0.18), rgba(29,78,216,0.08)) padding-box, linear-gradient(135deg, rgba(96,165,250,0.45), rgba(29,78,216,0.18)) border-box",
-              border: "1px solid transparent",
+              width: 28,
+              height: 28,
+              borderRadius: "50%",
+              background: isError ? "rgba(255,69,58,0.2)" : colors.bgTertiary,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              flexShrink: 0,
               alignSelf: "flex-end",
-              boxShadow: isError
-                ? "0 0 8px rgba(239,68,68,0.22)"
-                : "0 0 8px rgba(29,78,216,0.22)",
+              opacity: showAvatar ? 1 : 0,
             }}
           >
             {isError ? (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="#f87171">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill={colors.red}>
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
               </svg>
             ) : (
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                <rect x="3" y="11" width="18" height="10" rx="3" stroke="#60a5fa" strokeWidth="1.5" />
-                <path d="M9 11V8a3 3 0 0 1 6 0v3" stroke="#60a5fa" strokeWidth="1.5" />
-                <circle cx="9" cy="16" r="1.5" fill="#60a5fa" />
-                <circle cx="15" cy="16" r="1.5" fill="#60a5fa" />
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="8" r="4" fill={colors.blue} />
+                <path d="M5 20c0-3.866 3.134-7 7-7s7 3.134 7 7" stroke={colors.blue} strokeWidth="2" strokeLinecap="round" />
               </svg>
             )}
           </div>
@@ -682,17 +680,19 @@ function MessageBubble({ message }: { message: Message }) {
         {/* Bubble */}
         <div
           style={{
-            padding: "10px 15px",
-            borderRadius: 19,
-            ...(isUser ? { borderBottomRightRadius: 4 } : { borderBottomLeftRadius: 4 }),
-            ...bubbleStyle,
-            fontSize: 14,
-            lineHeight: 1.5,
-            color: isUser ? "#dbeafe" : isError ? "#fca5a5" : "var(--text-primary)",
+            padding: "10px 14px",
+            borderRadius: 18,
+            ...(isUser ? { borderBottomRightRadius: 4 } : { borderBottomLeftRadius: showAvatar ? 4 : 18 }),
+            background: bubbleBg,
+            border: bubbleBorder,
+            fontSize: 15,
+            lineHeight: 1.45,
+            color: textColor,
+            wordBreak: "break-word",
           }}
         >
           {isUser ? (
-            <span style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{message.content}</span>
+            <span style={{ whiteSpace: "pre-wrap" }}>{message.content}</span>
           ) : (
             <FormattedResponse content={message.content} isError={isError} />
           )}
@@ -704,15 +704,16 @@ function MessageBubble({ message }: { message: Message }) {
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 8,
-          marginTop: 4,
-          paddingLeft: isUser ? 0 : 36,
+          gap: 6,
+          marginTop: 3,
+          paddingLeft: isUser ? 0 : 34,
+          paddingRight: isUser ? 4 : 0,
           flexDirection: isUser ? "row-reverse" : "row",
         }}
       >
-        <span style={{ fontSize: 10, color: "var(--text-muted)" }}>{time}</span>
+        <span style={{ fontSize: 10, color: colors.labelTertiary }}>{time}</span>
         {message.duration_ms && (
-          <span style={{ fontSize: 10, color: "var(--text-muted)", opacity: 0.6 }}>
+          <span style={{ fontSize: 10, color: colors.labelTertiary }}>
             {(message.duration_ms / 1000).toFixed(1)}s
           </span>
         )}
@@ -720,15 +721,19 @@ function MessageBubble({ message }: { message: Message }) {
           <button
             onClick={copy}
             style={{
-              background: "none", border: "none", padding: 0,
-              cursor: "pointer", color: "var(--text-muted)",
-              display: "flex", alignItems: "center",
+              background: "none",
+              border: "none",
+              padding: 2,
+              cursor: "pointer",
+              color: colors.labelTertiary,
+              display: "flex",
+              alignItems: "center",
               WebkitTapHighlightColor: "transparent",
             }}
           >
             {copied ? (
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="#34d399">
-                <path d="M9 12l2 2 4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" stroke="#34d399" strokeWidth="2" fill="none" strokeLinecap="round" />
+              <svg width="11" height="11" viewBox="0 0 24 24" fill={colors.green}>
+                <path d="M9 12l2 2 4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" stroke={colors.green} strokeWidth="2" fill="none" strokeLinecap="round" />
               </svg>
             ) : (
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -743,8 +748,10 @@ function MessageBubble({ message }: { message: Message }) {
   );
 }
 
+// ── Formatted Response ──────────────────────────────────────────────────────
+
 function FormattedResponse({ content, isError }: { content: string; isError?: boolean }) {
-  if (isError) return <span style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{content}</span>;
+  if (isError) return <span style={{ whiteSpace: "pre-wrap" }}>{content}</span>;
 
   const parts = content.split(/(```[\s\S]*?```)/g);
   return (
@@ -760,14 +767,14 @@ function FormattedResponse({ content, isError }: { content: string; isError?: bo
               style={{
                 margin: "8px 0",
                 padding: "10px 12px",
-                borderRadius: 12,
+                borderRadius: 10,
                 fontSize: 12,
-                fontFamily: "ui-monospace, 'SF Mono', monospace",
+                fontFamily: "'SF Mono', ui-monospace, 'Cascadia Code', monospace",
                 overflowX: "auto",
                 WebkitOverflowScrolling: "touch",
-                background: "rgba(0,0,0,0.45)",
-                color: "#86efac",
-                border: "1px solid rgba(255,255,255,0.07)",
+                background: "rgba(0,0,0,0.5)",
+                color: "#98e6a8",
+                border: `1px solid ${colors.separatorOpaque}`,
                 whiteSpace: "pre",
               }}
             >
@@ -781,7 +788,7 @@ function FormattedResponse({ content, isError }: { content: string; isError?: bo
               const formatted = line.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).map((chunk, k) => {
                 if (chunk.startsWith("**") && chunk.endsWith("**")) {
                   return (
-                    <strong key={k} style={{ fontWeight: 600, color: "#e2e8f0" }}>
+                    <strong key={k} style={{ fontWeight: 600 }}>
                       {chunk.slice(2, -2)}
                     </strong>
                   );
@@ -791,12 +798,12 @@ function FormattedResponse({ content, isError }: { content: string; isError?: bo
                     <code
                       key={k}
                       style={{
-                        fontFamily: "ui-monospace, 'SF Mono', monospace",
-                        fontSize: 12,
+                        fontFamily: "'SF Mono', ui-monospace, monospace",
+                        fontSize: 13,
                         padding: "1px 5px",
                         borderRadius: 5,
-                        background: "rgba(0,0,0,0.38)",
-                        color: "#93c5fd",
+                        background: "rgba(0,0,0,0.35)",
+                        color: "#6ac4ff",
                       }}
                     >
                       {chunk.slice(1, -1)}
