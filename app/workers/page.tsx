@@ -8,6 +8,7 @@ import { PageLoader } from "@/components/ui/Spinner";
 import { ErrorState, EmptyState } from "@/components/ui/EmptyState";
 import Header from "@/components/layout/Header";
 import { relativeTime, parseCapabilities, shortId } from "@/lib/utils";
+import { useUptime } from "@/lib/useUptime";
 import type { Worker, WorkerStatus } from "@/lib/types";
 import { RiComputerLine, RiPrinterLine, RiCpuLine, RiAlertLine, RiDeleteBinLine, RiRefreshLine } from "react-icons/ri";
 
@@ -84,6 +85,7 @@ export default function WorkersPage() {
 }
 
 function WorkerRow({ worker, onRemove }: { worker: Worker; onRemove: () => void }) {
+  const uptime = useUptime(worker.created_at);
   const caps = parseCapabilities(worker.capabilities);
   const isUnhealthy =
     worker.computed_status === "offline" || worker.computed_status === "stale";
@@ -158,6 +160,9 @@ function WorkerRow({ worker, onRemove }: { worker: Worker; onRemove: () => void 
           </div>
           <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>
             registered {relativeTime(worker.created_at)}
+          </div>
+          <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+            uptime {uptime}
           </div>
           {(worker.computed_status === "offline" || worker.computed_status === "stale") && (
             <div className="flex justify-end">
