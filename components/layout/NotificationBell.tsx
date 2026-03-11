@@ -1,25 +1,14 @@
 "use client";
 
-import {
-  NovuProvider,
-  PopoverNotificationCenter,
-  NotificationBell,
-} from "@novu/notification-center";
-
-const APP_IDENTIFIER =
-  process.env.NEXT_PUBLIC_NOVU_APP_IDENTIFIER ?? "homebot-dashboard";
-const SUBSCRIBER_ID =
-  process.env.NEXT_PUBLIC_NOVU_SUBSCRIBER_ID ?? "anonymous";
+import { BiBell } from "react-icons/bi";
 
 export default function NotificationBellWidget() {
   return (
-    <NovuProvider
-      subscriberId={SUBSCRIBER_ID}
-      applicationIdentifier={APP_IDENTIFIER}
+    <button
+      className="relative p-2 rounded text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+      aria-label="Notifications"
     >
-      <PopoverNotificationCenter colorScheme="dark">
-        {({ unseenCount }) => <NotificationBell unseenCount={unseenCount} />}
-      </PopoverNotificationCenter>
-    </NovuProvider>
+      <BiBell size={18} />
+    </button>
   );
 }
